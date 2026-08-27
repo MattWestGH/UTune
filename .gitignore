@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output — the exes are ~90 MB each, well past what belongs in git.
+# Ship them as GitHub Release attachments instead.
+dist/
+
+# Generated from build/source-icon.png by `npm run icon`
+build/icon.ico
+build/icon.png
+
+# Local library when running from source
+.utune-data/
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.log

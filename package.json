@@ -1,0 +1,54 @@
+{
+  "name": "utune",
+  "productName": "UTune",
+  "version": "1.0.0",
+  "description": "UTune - a visually free music player",
+  "main": "src/main/main.js",
+  "author": "Matt",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "icon": "electron build/make-icon.js",
+    "dist": "node build/build.js"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "music-metadata": "^7.14.0"
+  },
+  "build": {
+    "appId": "com.matt.utune",
+    "productName": "UTune",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["src/**/*", "package.json", "!**/*.map"],
+    "extraResources": [
+      { "from": "resources/bin", "to": "bin" },
+      { "from": "resources/sounds", "to": "sounds" }
+    ],
+    "win": {
+      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "artifactName": "UTune-Setup.exe",
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "UTune",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "UTune.exe",
+      "unpackDirName": "utune-runtime"
+    },
+    "compression": "maximum"
+  }
+}

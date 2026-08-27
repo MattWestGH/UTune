@@ -1,0 +1,240 @@
+/* Fallback values only - Theme overwrites all of these at runtime. */
+:root {
+  --text: #f2eefb;
+  --text-dim: #a79fbd;
+  --accent: #c084fc;
+  --accent-2: #f0abfc;
+  --on-accent: #150c22;
+  --surface: #141020;
+  --surface-2: #1c1630;
+  --surface-hover: #272040;
+  --border: #392f55;
+  --border-hover: #6d5aa8;
+  --sidebar-bg: #100c1c;
+  --sidebar-text: #b7aed0;
+  --sidebar-active: #c084fc;
+  --header-bg: #0e0a18;
+  --player-bg: #120e20;
+  --progress-track: #3a3055;
+  --progress-fill: #c084fc;
+  --knob: #ffffff;
+  --heart: #fb7185;
+  --shadow-color: #000000;
+  --glow-color: #c084fc;
+  --scrollbar: #4a3d70;
+  --selection: #7c3aed;
+
+  --surface-rgba: rgba(20, 16, 32, 0.86);
+  --surface-2-rgba: rgba(28, 22, 48, 0.94);
+  --sidebar-rgba: rgba(16, 12, 28, 0.86);
+  --player-rgba: rgba(18, 14, 32, 0.92);
+  --header-rgba: rgba(14, 10, 24, 0.92);
+  --accent-soft: rgba(192, 132, 252, 0.16);
+  --accent-mid: rgba(192, 132, 252, 0.4);
+  --selection-rgba: rgba(124, 58, 237, 0.45);
+
+  --font-body: "Segoe UI", system-ui, sans-serif;
+  --font-heading: "Segoe UI", system-ui, sans-serif;
+  --font-size: 14px;
+  --font-weight: 400;
+  --heading-weight: 700;
+  --heading-scale: 1.9;
+  --heading-size: calc(var(--font-size) * 1.9);
+  --letter-spacing: 0px;
+  --heading-spacing: -0.5px;
+  --line-height: 1.5;
+  --heading-case: none;
+  --ui-case: none;
+
+  --radius: 10px;
+  --card-radius: 14px;
+  --button-radius: 999px;
+  --cover-radius: 10px;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-rule: 1px solid var(--border);
+  --cover-border: 0px;
+
+  --surface-opacity: 0.86;
+  --surface-blur: 14px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --glow: none;
+  --cover-glow: 0 8px 26px rgba(192, 132, 252, 0.35);
+  --hover-lift: 2px;
+  --transition: 180ms;
+  --app-filter: none;
+  --motion-speed: 40s;
+  --pulse: 1;
+
+  --sidebar-w: 232px;
+  --player-h: 92px;
+  --row-h: 46px;
+  --gap: 16px;
+  --grid-size: 172px;
+  --titlebar-h: 38px;
+  --topbar-h: 62px;
+  --queue-w: 300px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--font-size);
+  font-weight: var(--font-weight);
+  line-height: var(--line-height);
+  letter-spacing: var(--letter-spacing);
+  color: var(--text);
+  background: #000;
+  user-select: none;
+}
+
+:root.crisp-text body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--selection-rgba); color: var(--text); }
+
+h1, h2, h3 {
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  letter-spacing: var(--heading-spacing);
+  text-transform: var(--heading-case);
+  margin: 0;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+
+img { display: block; max-width: 100%; }
+
+/* ------------------------------ scrollbars ------------------------------ */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
+
+/* ------------------------------- backdrop ------------------------------- */
+
+#backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--bg-1, #120b1f);
+}
+
+#backdrop-media {
+  position: absolute;
+  inset: 0;
+  transform-origin: center;
+  will-change: transform, background-position;
+}
+
+#backdrop-media.bleed { inset: -12%; }
+
+#backdrop-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#backdrop-tint,
+#backdrop-grain,
+#backdrop-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#backdrop-vignette {
+  background: radial-gradient(ellipse at center, transparent 42%, #000 128%);
+}
+
+#backdrop-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='0.55'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+/* ------------------------------ bg motion ------------------------------ */
+
+@keyframes anim-gradient {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+#backdrop-media.anim-gradient { animation: anim-gradient var(--motion-speed) ease-in-out infinite; }
+
+@keyframes bg-pan {
+  0%   { transform: scale(var(--bg-scale, 1)) translate3d(-2%, 0, 0); }
+  50%  { transform: scale(var(--bg-scale, 1)) translate3d(2%, 0, 0); }
+  100% { transform: scale(var(--bg-scale, 1)) translate3d(-2%, 0, 0); }
+}
+#backdrop-media.motion-pan { animation: bg-pan var(--motion-speed) ease-in-out infinite; }
+
+@keyframes bg-zoom {
+  0%   { transform: scale(calc(var(--bg-scale, 1) * 1)); }
+  50%  { transform: scale(calc(var(--bg-scale, 1) * 1.12)); }
+  100% { transform: scale(calc(var(--bg-scale, 1) * 1)); }
+}
+#backdrop-media.motion-zoom { animation: bg-zoom var(--motion-speed) ease-in-out infinite; }
+
+@keyframes bg-drift {
+  0%   { transform: scale(calc(var(--bg-scale, 1) * 1.06)) translate3d(-2%, -1.5%, 0); }
+  33%  { transform: scale(calc(var(--bg-scale, 1) * 1.1)) translate3d(2%, 1%, 0); }
+  66%  { transform: scale(calc(var(--bg-scale, 1) * 1.06)) translate3d(1%, -2%, 0); }
+  100% { transform: scale(calc(var(--bg-scale, 1) * 1.06)) translate3d(-2%, -1.5%, 0); }
+}
+#backdrop-media.motion-drift { animation: bg-drift var(--motion-speed) ease-in-out infinite; }
+
+@keyframes bg-sway {
+  0%   { transform: scale(calc(var(--bg-scale, 1) * 1.08)) rotate(-1.2deg); }
+  50%  { transform: scale(calc(var(--bg-scale, 1) * 1.08)) rotate(1.2deg); }
+  100% { transform: scale(calc(var(--bg-scale, 1) * 1.08)) rotate(-1.2deg); }
+}
+#backdrop-media.motion-sway { animation: bg-sway var(--motion-speed) ease-in-out infinite; }
+
+@keyframes bg-spin {
+  from { transform: scale(calc(var(--bg-scale, 1) * 1.6)) rotate(0deg); }
+  to   { transform: scale(calc(var(--bg-scale, 1) * 1.6)) rotate(360deg); }
+}
+#backdrop-media.motion-spin { animation: bg-spin var(--motion-speed) linear infinite; }
+
+/* Pulse rides on top of whatever motion is running. */
+#backdrop-media.reactive {
+  transition: filter 90ms linear;
+  filter: brightness(var(--pulse));
+}
+
+/* --------------------------- outline everything --------------------------- */
+
+:root.outline-all .panel,
+:root.outline-all .card,
+:root.outline-all .track-row,
+:root.outline-all .ctrl,
+:root.outline-all .nav-item,
+:root.outline-all .primary-btn,
+:root.outline-all .ghost-btn,
+:root.outline-all .icon-btn,
+:root.outline-all #topbar,
+:root.outline-all .page-head {
+  border: var(--border-rule);
+}

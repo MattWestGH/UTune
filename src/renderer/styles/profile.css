@@ -1,0 +1,292 @@
+/* ------------------------------- avatars ------------------------------- */
+
+.avatar {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--surface-2), var(--surface-hover));
+  border: var(--border-width) var(--border-style) var(--border);
+  flex-shrink: 0;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-initial {
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  color: var(--accent);
+  line-height: 1;
+}
+
+.chip-avatar { width: 34px; height: 34px; }
+.chip-avatar .avatar-initial { font-size: 15px; }
+
+.profile-avatar { width: 92px; height: 92px; box-shadow: var(--shadow); }
+.profile-avatar .avatar-initial { font-size: 38px; }
+
+/* The intro sits on its own gradient, not the theme, so the avatar has to stop
+   using theme surface colours or it turns into a dark blob on a bright wash. */
+.intro-avatar {
+  width: 108px; height: 108px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 3px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px);
+}
+.intro-avatar .avatar-initial { font-size: 44px; color: #fff; }
+
+/* ---------------------------- sidebar chip ---------------------------- */
+
+.profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius);
+  color: var(--sidebar-text);
+  text-align: left;
+  transition: background var(--transition), transform var(--transition);
+}
+.profile-chip:hover { background: var(--surface-hover); color: var(--text); }
+.profile-chip.on { background: var(--accent-soft); color: var(--sidebar-active); }
+
+.chip-text { min-width: 0; display: flex; flex-direction: column; }
+.chip-name {
+  font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chip-sub {
+  font-size: calc(var(--font-size) * 0.76);
+  opacity: 0.6;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------------------------- profile page ---------------------------- */
+
+.profile-banner {
+  position: relative;
+  margin-bottom: calc(var(--gap) * 1.5);
+  padding: calc(var(--gap) * 2);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.profile-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.42), transparent 65%);
+  pointer-events: none;
+}
+
+.profile-banner-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--gap) * 1.2);
+}
+
+.profile-greeting {
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
+  font-size: calc(var(--font-size) * 2.1);
+  letter-spacing: var(--heading-spacing);
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+  line-height: 1.15;
+}
+.profile-banner-bio {
+  margin-top: 6px;
+  max-width: 60ch;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
+.profile-form { display: flex; flex-direction: column; gap: var(--gap); }
+.profile-bio { resize: vertical; min-height: 88px; font-family: inherit; line-height: var(--line-height); }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ------------------------------ settings ------------------------------ */
+
+.settings-panel { display: flex; flex-direction: column; gap: var(--gap); }
+
+.setting-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+.setting-label { font-weight: 600; }
+
+.setting-row input[type="checkbox"] {
+  appearance: none;
+  width: 19px; height: 19px;
+  flex-shrink: 0;
+  margin: 2px 0 0;
+  border-radius: calc(var(--radius) * 0.45);
+  background: var(--surface-2-rgba);
+  border: var(--border-width) var(--border-style) var(--border);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.setting-row input[type="checkbox"]:hover { border-color: var(--border-hover); }
+.setting-row input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+.setting-row input[type="checkbox"]:checked::after {
+  content: "";
+  display: block;
+  width: 5px; height: 9px;
+  margin: 2px auto 0;
+  border: solid var(--on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(42deg);
+}
+
+.field-note {
+  font-size: calc(var(--font-size) * 0.84);
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.field-note.warn { color: #fbbf24; }
+
+/* ------------------------------- intro ------------------------------- */
+
+#intro-host { position: fixed; inset: 0; z-index: 200; }
+
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 520ms ease;
+}
+.intro.in { opacity: 1; }
+/* Stop swallowing clicks the moment it is dismissed, not when the fade ends. */
+.intro.out { opacity: 0; transition: opacity 600ms ease; pointer-events: none; }
+
+.intro-wash {
+  position: absolute;
+  inset: -20%;
+  background-size: 200% 200%;
+  animation: intro-drift 9s ease-in-out infinite;
+}
+
+@keyframes intro-drift {
+  0%   { background-position: 0% 50%; transform: scale(1.04); }
+  50%  { background-position: 100% 50%; transform: scale(1.1); }
+  100% { background-position: 0% 50%; transform: scale(1.04); }
+}
+
+/* A soft bloom behind the text so the greeting always has something to sit on. */
+.intro-orb {
+  position: absolute;
+  width: 70vmin; height: 70vmin;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.75;
+  mix-blend-mode: soft-light;
+  animation: intro-orb 6s ease-in-out infinite;
+}
+@keyframes intro-orb {
+  0%, 100% { transform: translate3d(-8%, -6%, 0) scale(1); }
+  50%      { transform: translate3d(8%, 6%, 0) scale(1.14); }
+}
+
+.intro-body {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 0 40px;
+  transform: translateY(14px);
+  opacity: 0;
+  animation: intro-rise 900ms cubic-bezier(.2, .8, .2, 1) 160ms forwards;
+}
+@keyframes intro-rise {
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.intro-greeting {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(30px, 5.4vw, 62px);
+  letter-spacing: -0.5px;
+  color: #fff;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.35);
+  line-height: 1.05;
+}
+.intro-blurb {
+  margin: 10px 0 0;
+  font-size: clamp(14px, 1.5vw, 19px);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.3);
+}
+
+.intro-skip {
+  position: absolute;
+  bottom: 34px;
+  z-index: 2;
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 0;
+  animation: intro-fade-in 600ms ease 1500ms forwards;
+}
+@keyframes intro-fade-in { to { opacity: 1; } }
+
+/* Night is dark enough that white-on-gradient needs no extra help. */
+.intro[data-slot="night"] .intro-orb { opacity: 0.7; }
+
+/* ------------------------------- grips ------------------------------- */
+
+.grip {
+  position: fixed;
+  z-index: 40;
+  background: transparent;
+  transition: background var(--transition);
+}
+.grip::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.grip:hover::after, .grip.dragging::after { opacity: 0.85; }
+
+.grip-v {
+  top: var(--titlebar-h);
+  bottom: var(--player-h);
+  left: calc(var(--sidebar-w) - 3px);
+  width: 7px;
+  cursor: col-resize;
+}
+.grip-v::after { top: 50%; left: 2px; width: 3px; height: 46px; transform: translateY(-50%); }
+
+.grip-h {
+  left: 0;
+  right: 0;
+  bottom: calc(var(--player-h) - 3px);
+  height: 7px;
+  cursor: row-resize;
+}
+.grip-h::after { left: 50%; top: 2px; height: 3px; width: 46px; transform: translateX(-50%); }
+
+/* While dragging, keep the cursor consistent and stop text selecting. The grid
+   transition has to go too, or the sidebar lags behind the grip you are holding. */
+body.resizing { user-select: none; }
+body.resizing #app { transition: none; }
+body.resizing-x, body.resizing-x * { cursor: col-resize !important; }
+body.resizing-y, body.resizing-y * { cursor: row-resize !important; }

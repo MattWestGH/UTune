@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' http://127.0.0.1:* data: blob:; media-src 'self' http://127.0.0.1:* data: blob:; font-src 'self' http://127.0.0.1:* data:; connect-src 'self' http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+<title>UTune</title>
+<link rel="stylesheet" href="styles/base.css" />
+<link rel="stylesheet" href="styles/layout.css" />
+<link rel="stylesheet" href="styles/components.css" />
+<link rel="stylesheet" href="styles/customizer.css" />
+<link rel="stylesheet" href="styles/profile.css" />
+</head>
+<body>
+
+<!-- Layer 0: the themeable backdrop -->
+<div id="backdrop">
+  <div id="backdrop-media"></div>
+  <div id="backdrop-tint"></div>
+  <div id="backdrop-grain"></div>
+  <div id="backdrop-vignette"></div>
+</div>
+
+<div id="app">
+
+  <!-- Custom title bar (frameless window) -->
+  <header id="titlebar">
+    <div class="tb-drag">
+      <div class="tb-brand">
+        <svg class="tb-logo" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 14.2c3-1.5 6.6-1.6 9.6-.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M7.6 11c3.4-1.7 7.5-1.7 10.8-.1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M8.2 7.9c3.6-1.6 7.6-1.4 10.6.2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <span class="tb-title" id="brand-name">UTune</span>
+      </div>
+    </div>
+    <div class="tb-controls">
+      <button class="tb-btn" id="win-min" title="Minimise" aria-label="Minimise"><svg viewBox="0 0 12 12"><path d="M2 6h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+      <button class="tb-btn" id="win-max" title="Maximise" aria-label="Maximise"><svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.3" rx="1"/></svg></button>
+      <button class="tb-btn tb-close" id="win-close" title="Close" aria-label="Close"><svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <button class="profile-chip" id="profile-chip" title="Your profile"></button>
+
+    <div class="nav-group">
+      <button class="nav-item" data-view="home"><span class="nav-ico">◆</span><span>Home</span></button>
+      <button class="nav-item" data-view="songs"><span class="nav-ico">♪</span><span>Songs</span></button>
+      <button class="nav-item" data-view="albums"><span class="nav-ico">▤</span><span>Albums</span></button>
+      <button class="nav-item" data-view="artists"><span class="nav-ico">☺</span><span>Artists</span></button>
+      <button class="nav-item" data-view="favorites"><span class="nav-ico">♥</span><span>Loved</span></button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Get music</div>
+      <button class="nav-item" data-view="download"><span class="nav-ico">↓</span><span>YouTube</span></button>
+      <button class="nav-item" id="btn-import-files"><span class="nav-ico">+</span><span>Add files</span></button>
+      <button class="nav-item" id="btn-import-folder"><span class="nav-ico">⌸</span><span>Add folder</span></button>
+    </div>
+
+    <div class="nav-group nav-playlists">
+      <div class="nav-label">
+        Playlists
+        <button class="nav-mini" id="btn-new-playlist" title="New playlist">+</button>
+      </div>
+      <div id="playlist-list"></div>
+    </div>
+
+    <div class="nav-group nav-bottom">
+      <button class="nav-item nav-customize" data-view="customize"><span class="nav-ico">✿</span><span>Customise</span></button>
+      <button class="nav-item" data-view="settings"><span class="nav-ico">⚙</span><span>Settings</span></button>
+    </div>
+  </nav>
+
+  <!-- Drag to resize the sidebar -->
+  <div id="sidebar-grip" class="grip grip-v" title="Drag to resize"></div>
+
+  <!-- Main -->
+  <main id="main">
+    <div id="topbar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input id="search" type="search" placeholder="Search your library" autocomplete="off" spellcheck="false" />
+        <button id="search-clear" class="search-clear" title="Clear">×</button>
+      </div>
+      <div class="topbar-right"></div>
+    </div>
+
+    <div id="view"></div>
+  </main>
+
+  <!-- Now playing / queue drawer -->
+  <aside id="queue-panel" class="hidden">
+    <div class="queue-head">
+      <h3>Up next</h3>
+      <button class="icon-btn" id="queue-close" title="Close">×</button>
+    </div>
+    <div id="queue-list"></div>
+  </aside>
+
+  <!-- Drag to resize the player bar -->
+  <div id="player-grip" class="grip grip-h" title="Drag to resize"></div>
+
+  <!-- Player -->
+  <footer id="player">
+    <div class="pl-left">
+      <div class="pl-cover" id="pl-cover"><div class="cover-fallback">♪</div></div>
+      <div class="pl-meta">
+        <div class="pl-title" id="pl-title">Nothing playing</div>
+        <div class="pl-artist" id="pl-artist">Pick something lovely</div>
+      </div>
+      <button class="icon-btn heart" id="pl-fav" title="Love this track"></button>
+    </div>
+
+    <div class="pl-center">
+      <div class="pl-buttons">
+        <button class="icon-btn" id="btn-shuffle" title="Shuffle"></button>
+        <button class="icon-btn" id="btn-prev" title="Previous"></button>
+        <button class="play-btn" id="btn-play" title="Play"></button>
+        <button class="icon-btn" id="btn-next" title="Next"></button>
+        <button class="icon-btn" id="btn-repeat" title="Repeat"></button>
+      </div>
+      <div class="pl-seek">
+        <span class="time" id="time-now">0:00</span>
+        <div class="track-slider" id="seek">
+          <div class="track-rail"><div class="track-fill" id="seek-fill"></div><div class="track-knob" id="seek-knob"></div></div>
+        </div>
+        <span class="time" id="time-total">0:00</span>
+      </div>
+    </div>
+
+    <div class="pl-right">
+      <canvas id="visualizer" width="220" height="40"></canvas>
+      <button class="icon-btn" id="btn-queue" title="Queue"></button>
+      <button class="icon-btn" id="btn-mute" title="Mute"></button>
+      <div class="track-slider vol" id="volume">
+        <div class="track-rail"><div class="track-fill" id="vol-fill"></div><div class="track-knob" id="vol-knob"></div></div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Drop overlay -->
+<div id="dropzone"><div class="dropzone-inner"><div class="dz-icon">＋</div><div>Drop audio files or folders to add them</div></div></div>
+
+<!-- Toasts -->
+<div id="toasts"></div>
+
+<!-- Modal host -->
+<div id="modal-host" class="hidden"><div class="modal-backdrop"></div><div class="modal-body" id="modal-body"></div></div>
+
+<audio id="audio" preload="metadata"></audio>
+
+<script src="js/util.js"></script>
+<script src="js/theme-schema.js"></script>
+<script src="js/theme-presets.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/state.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/player.js"></script>
+<script src="js/visualizer.js"></script>
+<script src="js/views.js"></script>
+<script src="js/settings-views.js"></script>
+<script src="js/download.js"></script>
+<script src="js/customizer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
