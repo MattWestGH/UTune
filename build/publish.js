@@ -19,8 +19,11 @@ const pkg = require(path.join(ROOT, 'package.json'));
 const TAG = 'v' + pkg.version;
 const ASSETS = ['UTune-Setup.exe', 'UTune.exe'];
 
-const gh = (args, opts = {}) =>
-  execFileSync('gh', args, { cwd: ROOT, encoding: 'utf8', ...opts }).trim();
+// execFileSync returns null when stdio is inherited, since nothing is captured.
+const gh = (args, opts = {}) => {
+  const out = execFileSync('gh', args, { cwd: ROOT, encoding: 'utf8', ...opts });
+  return typeof out === 'string' ? out.trim() : '';
+};
 
 function exists(tag) {
   try {
