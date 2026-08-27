@@ -280,6 +280,10 @@ async function boot() {
   await Theme.init();
   await Profile.init();
 
+  // Must come before the chime: it restores the saved volume, and the chime is
+  // scaled from it. Playing anything before this would use an unrelated level.
+  Player.init();
+
   // Start the chime and raise the greeting before the rest of the UI paints,
   // so the app is never briefly visible underneath it.
   Profile.playStartupSound();
@@ -287,7 +291,6 @@ async function boot() {
 
   await Store.refresh();
 
-  Player.init();
   setupChrome();
   setupDragDrop();
   setupKeys();

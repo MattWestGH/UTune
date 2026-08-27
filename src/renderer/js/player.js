@@ -2,12 +2,30 @@ const Player = (() => {
   const audio = $('#audio');
   audio.crossOrigin = 'anonymous';
 
+  /**
+   * Output limits.
+   *
+   * CEILING caps what the slider can ever reach, so 100% is loud but not
+   * painful rather than full digital scale. CURVE gives the slider a normal
+   * audio taper - a linear one crams every usable level into the bottom of the
+   * travel, which makes a safe setting hard to find.
+   *
+   * amplitudeFor() is the ONLY thing in the app that decides how loud audio is.
+   * Nothing else may assign to .volume; anything that needs to make a sound
+   * asks for an amplitude here so it stays tied to the user's setting.
+   */
+  const CEILING = 0.5;
+  const CURVE = 2;
+
+  const clamp01 = (n) => Math.min(1, Math.max(0, Number(n) || 0));
+  const amplitudeFor = (level) => Math.pow(clamp01(level), CURVE) * CEILING;
+
   const state = {
     queue: [],        // track ids in play order
     index: -1,
     shuffle: false,
     repeat: 'off',    // off | all | one
-    volume: 0.8,
+    volume: 0.5,
     muted: false,
     playing: false,
   };
@@ -153,18 +171,24 @@ const Player = (() => {
     audio.currentTime = ratio * audio.duration;
   }
 
+  // The single point at which output level is applied.
+  function applyVolume() {
+    audio.volume = state.muted ? 0 : amplitudeFor(state.volume);
+    audio.muted = state.muted;
+  }
+
   function setVolume(value) {
-    state.volume = Math.min(1, Math.max(0, value));
-    state.muted = state.volume === 0;
-    audio.volume = state.volume;
-    audio.muted = false;
+    state.volume = clamp01(value);
+    // Dragging the slider off zero is an explicit request to hear something.
+    if (state.volume > 0) state.muted = false;
+    applyVolume();
     paintVolume();
     localStorage.setItem('utune.volume', String(state.volume));
   }
 
   function toggleMute() {
     state.muted = !state.muted;
-    audio.muted = state.muted;
+    applyVolume();
     paintVolume();
   }
 
@@ -244,8 +268,9 @@ const Player = (() => {
   let seekBar;
 
   function init() {
+    // A conservative default: first launch should never be a shock.
     const savedVolume = parseFloat(localStorage.getItem('utune.volume'));
-    setVolume(isNaN(savedVolume) ? 0.8 : savedVolume);
+    setVolume(isNaN(savedVolume) ? 0.5 : savedVolume);
 
     audio.addEventListener('play', () => { state.playing = true; paintControls(); emit(); });
     audio.addEventListener('pause', () => { state.playing = false; paintControls(); emit(); });
@@ -294,5 +319,8 @@ const Player = (() => {
     init, state, subscribe, current, playTracks, playNow, enqueue, toggle,
     next, prev, jumpTo, removeFromQueue, toggleShuffle, cycleRepeat, seekRatio,
     setVolume, toggleMute, paint, audio,
+    // So other sounds can sit under the same ceiling and the same setting.
+    amplitudeFor,
+    currentAmplitude: () => (state.muted ? 0 : amplitudeFor(state.volume)),
   };
 })();

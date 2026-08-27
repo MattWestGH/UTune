@@ -113,6 +113,13 @@ const Profile = (() => {
   }
 
   /**
+   * The chime plays before anything can be adjusted, so it is deliberately the
+   * quietest thing the app produces: it follows the player's volume setting and
+   * sits well below it. It must never carry a level of its own.
+   */
+  const CHIME_RATIO = 0.6;
+
+  /**
    * Plays at most MAX_SOUND_SECONDS, fading the last moment so a clip that is
    * cut short does not end on a click.
    */
@@ -120,8 +127,11 @@ const Profile = (() => {
     if (!name) return null;
     if (!force && !data.playStartupSound) return null;
 
+    const level = Player.currentAmplitude() * CHIME_RATIO;
+    if (level <= 0) return null;   // muted means muted
+
     const audio = new Audio(assetUrl('sounds', name));
-    audio.volume = 0.85;
+    audio.volume = level;
 
     const stopAt = MAX_SOUND_SECONDS;
     const fadeFrom = stopAt - 0.35;
@@ -132,7 +142,7 @@ const Profile = (() => {
         return;
       }
       if (audio.currentTime >= fadeFrom) {
-        audio.volume = Math.max(0, 0.85 * (1 - (audio.currentTime - fadeFrom) / 0.35));
+        audio.volume = Math.max(0, level * (1 - (audio.currentTime - fadeFrom) / 0.35));
       }
     };
     audio.addEventListener('timeupdate', tick);

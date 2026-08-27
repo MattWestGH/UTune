@@ -150,6 +150,25 @@ Cotton Candy. **Surprise me** generates a fresh coherent palette at random.
 Looks can be **saved** by name, **exported** to a `.utunetheme.json` file and
 **imported** again. Any single control can be reset with the ↺ next to it.
 
+## Volume
+
+The slider never reaches full digital scale. 100% sits at −6 dBFS, and the
+travel follows a square-law taper rather than a linear one, so usable levels are
+spread across the whole slider instead of bunched at the bottom. A fresh install
+starts at 50%.
+
+The start-up chime is scaled from the same setting and sits about 14 dB below
+music, because it plays before anything can be adjusted. Muting silences it too.
+
+Every level in the app comes from one function, `amplitudeFor()` in
+`player.js` — nothing else assigns to `.volume`. Output changes only when the
+slider, the mute button or the volume keys are used; it is never adjusted
+automatically. The visualiser's auto-gain scales bar heights only and is not in
+the audio path (`source → analyser → destination`, all unity gain).
+
+The one exception is a 0.35 s fade at the end of a start-up clip that has hit the
+five-second cap, which only ever ramps down and exists to avoid a click.
+
 ## Keyboard
 
 | Key | |
