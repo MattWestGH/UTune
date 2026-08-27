@@ -1,7 +1,7 @@
 {
   "name": "utune",
   "productName": "UTune",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "UTune - a visually free music player",
   "main": "src/main/main.js",
   "author": "Matt",
@@ -9,7 +9,9 @@
   "scripts": {
     "start": "electron .",
     "icon": "electron build/make-icon.js",
-    "dist": "node build/build.js"
+    "dist": "node build/build.js",
+    "publish": "node build/publish.js",
+    "ship": "node build/build.js && node build/publish.js"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -21,14 +23,34 @@
   "build": {
     "appId": "com.matt.utune",
     "productName": "UTune",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["src/**/*", "package.json", "!**/*.map"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
     "extraResources": [
-      { "from": "resources/bin", "to": "bin" },
-      { "from": "resources/sounds", "to": "sounds" }
+      {
+        "from": "resources/bin",
+        "to": "bin"
+      },
+      {
+        "from": "resources/sounds",
+        "to": "sounds"
+      }
     ],
     "win": {
-      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.ico",
       "signAndEditExecutable": false
     },
