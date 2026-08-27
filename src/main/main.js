@@ -186,6 +186,16 @@ on('yt:download', (url, opts) =>
   youtube.download(url, opts || {}, (evt) => win && win.webContents.send('yt:progress', evt)));
 on('yt:cancel', (jobId) => youtube.cancel(jobId));
 
+on('yt:pickCookies', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Choose a cookies.txt file',
+    properties: ['openFile'],
+    filters: [{ name: 'Cookies', extensions: ['txt'] }],
+  });
+  if (res.canceled) return null;
+  return res.filePaths[0];
+});
+
 /* ------------------------------ profile ------------------------------ */
 
 const DEFAULT_PROFILE = {

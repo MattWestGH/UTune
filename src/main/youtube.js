@@ -25,6 +25,67 @@ function formatSelector(quality) {
 }
 
 /**
+ * Reading cookies straight out of a Chromium browser is unreliable on Windows.
+ * Chrome 127+ encrypts them with an app-bound key that other processes cannot
+ * unwrap (yt-dlp issue 10927), and while the browser is running the database is
+ * locked so it cannot even be copied (issue 7271). Either way the cookie step
+ * fails before the download starts.
+ *
+ * Most videos need no cookies at all, so a failure here is not fatal: the job
+ * retries once without them and only reports an error if that also fails.
+ */
+const COOKIE_FAILURE = new RegExp([
+  'could not copy .*cookie database',
+  'failed to decrypt with dpapi',
+  'could not find .*cookies database',
+  'unsupported browser',
+  'cookies database .*(locked|permission denied)',
+  'failed to (read|extract|decrypt).*cookies',
+].join('|'), 'i');
+
+/** Turns yt-dlp's stderr into something worth showing a person. */
+function friendlyError(stderr, code) {
+  const text = String(stderr || '');
+
+  // Messages arrive as "ERROR: [extractor] id: the actual problem".
+  const strip = (line) => line
+    .replace(/^ERROR:\s*/i, '')
+    .replace(/^\[[^\]]+\]\s*[^:]*:\s*/, '')
+    .trim();
+
+  if (/sign in to confirm your age|age.?restricted|inappropriate for some users/i.test(text)) {
+    return 'YouTube wants a sign-in for this one. Set "Age-restricted videos" to a cookies.txt file and try again.';
+  }
+  if (/sign in to confirm/i.test(text)) {
+    return 'YouTube is asking this download to sign in. A cookies.txt file usually gets past it.';
+  }
+  if (/private video/i.test(text)) return 'That video is private.';
+  if (/members-only|join this channel/i.test(text)) return 'That video is members-only.';
+  if (/video (is )?unavailable|removed by the uploader|has been terminated/i.test(text)) {
+    return 'That video is not available any more.';
+  }
+  if (/unsupported url|is not a valid url/i.test(text)) {
+    return 'That link is not one yt-dlp recognises.';
+  }
+
+  // A genuine connectivity failure, as distinct from the server answering with
+  // an error - "unable to download webpage" alone covers both, so it cannot be
+  // treated as being offline.
+  if (/getaddrinfo|enotfound|eai_again|name resolution|network is unreachable|connection (refused|reset|aborted)|timed out/i.test(text)) {
+    return 'Could not reach the internet.';
+  }
+
+  const http = text.match(/HTTP Error (\d{3})/i);
+  if (http) return `That page could not be loaded (HTTP ${http[1]}).`;
+
+  if (/requested format is not available/i.test(text)) return 'No audio stream was offered for that video.';
+
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  const errorLine = lines.filter((l) => /^ERROR:/i.test(l)).pop() || lines.pop();
+  return errorLine ? strip(errorLine) : `yt-dlp exited with code ${code}`;
+}
+
+/**
  * Download audio for a URL into staging, then import each resulting file
  * into the library along with its thumbnail and metadata.
  */
@@ -39,34 +100,34 @@ function download(url, opts = {}, emit = () => {}) {
     return jobId;
   }
 
-  const args = [
-    '-f', formatSelector(opts.quality),
-    '--no-warnings',
-    '--newline',
-    '--progress',
-    '--no-part',
-    '--write-info-json',
-    '--write-thumbnail',
-    '--retries', '5',
-    '--fragment-retries', '10',
-    '--concurrent-fragments', '4',
-    '-o', path.join(stageDir, '%(title).80B [%(id)s].%(ext)s'),
-  ];
+  const baseArgs = () => {
+    const args = [
+      '-f', formatSelector(opts.quality),
+      '--no-warnings',
+      '--newline',
+      '--progress',
+      '--no-part',
+      '--write-info-json',
+      '--write-thumbnail',
+      '--retries', '5',
+      '--fragment-retries', '10',
+      '--concurrent-fragments', '4',
+      '-o', path.join(stageDir, '%(title).80B [%(id)s].%(ext)s'),
+    ];
+    if (opts.playlist && looksLikePlaylist(url)) {
+      args.push('--yes-playlist', '--playlist-end', String(opts.playlistLimit || 50));
+    } else {
+      args.push('--no-playlist');
+    }
+    return args;
+  };
 
-  if (opts.playlist && looksLikePlaylist(url)) args.push('--yes-playlist', '--playlist-end', String(opts.playlistLimit || 50));
-  else args.push('--no-playlist');
-
-  if (opts.cookiesFromBrowser) args.push('--cookies-from-browser', opts.cookiesFromBrowser);
-
-  args.push(url);
-
-  emit({ jobId, url, phase: 'starting', percent: 0, title: url });
-
-  const child = spawn(bin, args, { windowsHide: true });
-  jobs.set(jobId, child);
+  // A cookies.txt file is preferred when both are set - it is the one that works.
+  const wantsCookies = !!(opts.cookiesFile || opts.cookiesFromBrowser);
 
   let currentTitle = '';
   let stderrTail = '';
+  let retriedWithoutCookies = false;
 
   const handleLine = (line) => {
     const dest = line.match(DEST_RE);
@@ -90,31 +151,60 @@ function download(url, opts = {}, emit = () => {}) {
     }
   };
 
-  let outBuf = '';
-  child.stdout.on('data', (chunk) => {
-    outBuf += chunk.toString();
-    const lines = outBuf.split(/\r?\n/);
-    outBuf = lines.pop();
-    lines.forEach(handleLine);
-  });
+  const run = (useCookies) => {
+    const args = baseArgs();
+    if (useCookies && opts.cookiesFile) args.push('--cookies', opts.cookiesFile);
+    else if (useCookies && opts.cookiesFromBrowser) args.push('--cookies-from-browser', opts.cookiesFromBrowser);
+    args.push(url);
 
-  child.stderr.on('data', (chunk) => {
-    const text = chunk.toString();
-    stderrTail = (stderrTail + text).slice(-1500);
-    text.split(/\r?\n/).forEach(handleLine);
-  });
+    stderrTail = '';
+    const child = spawn(bin, args, { windowsHide: true });
+    jobs.set(jobId, child);
 
-  child.on('error', (err) => {
+    let outBuf = '';
+    child.stdout.on('data', (chunk) => {
+      outBuf += chunk.toString();
+      const lines = outBuf.split(/\r?\n/);
+      outBuf = lines.pop();
+      lines.forEach(handleLine);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      stderrTail = (stderrTail + text).slice(-2000);
+      text.split(/\r?\n/).forEach(handleLine);
+    });
+
+    child.on('error', (err) => {
+      jobs.delete(jobId);
+      emit({ jobId, url, phase: 'error', error: err.message });
+    });
+
+    child.on('close', (code) => onClose(code, useCookies));
+  };
+
+  const onClose = async (code, usedCookies) => {
     jobs.delete(jobId);
-    emit({ jobId, url, phase: 'error', error: err.message });
-  });
 
-  child.on('close', async (code) => {
-    jobs.delete(jobId);
     if (code !== 0) {
+      // Cookies could not be read. Most videos do not need them, so drop them
+      // and try once more rather than failing outright.
+      if (usedCookies && !retriedWithoutCookies && COOKIE_FAILURE.test(stderrTail)) {
+        retriedWithoutCookies = true;
+        emit({
+          jobId, url, phase: 'downloading', percent: 0, title: currentTitle || url,
+          notice: 'Could not read browser cookies - retrying without them.',
+        });
+        run(false);
+        return;
+      }
+
       cleanup(stageDir);
-      const reason = stderrTail.split(/\r?\n/).filter(Boolean).pop() || `yt-dlp exited with code ${code}`;
-      emit({ jobId, url, phase: 'error', error: reason });
+      let error = friendlyError(stderrTail, code);
+      if (retriedWithoutCookies) {
+        error += ' (browser cookies could not be read, so this ran without them.)';
+      }
+      emit({ jobId, url, phase: 'error', error });
       return;
     }
     emit({ jobId, url, phase: 'importing', percent: 100, title: currentTitle || url });
@@ -126,7 +216,10 @@ function download(url, opts = {}, emit = () => {}) {
     } finally {
       cleanup(stageDir);
     }
-  });
+  };
+
+  emit({ jobId, url, phase: 'starting', percent: 0, title: url });
+  run(wantsCookies);
 
   return jobId;
 }

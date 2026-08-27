@@ -98,7 +98,29 @@ upload year and thumbnail in as artwork.
 - *Highest bitrate available* usually gets Opus, which is better quality per
   byte and plays fine in the app.
 - Tick the playlist box to grab a whole playlist (capped at 50).
-- For age-restricted videos, point it at your browser's cookies in the dropdown.
+- For age-restricted or private videos, supply cookies via the dropdown.
+
+### Cookies
+
+Most videos need no cookies. They are only required when YouTube demands a
+sign-in — age-restricted, private or members-only videos.
+
+Reading cookies straight out of **Chrome or Edge no longer works reliably on
+Windows**. Chrome 127+ encrypts its cookie store with an app-bound key that other
+programs cannot unwrap ([yt-dlp #10927][abe]), and while the browser is running
+the database is locked so it cannot even be copied ([#7271][lock]). Firefox is
+unaffected.
+
+The reliable option is a **cookies.txt file**: install a "Get cookies.txt"
+extension in whichever browser you are signed into YouTube with, export, and
+pick the file in the dropdown.
+
+If cookie extraction fails, the download does not fail with it — it retries once
+without cookies and only reports an error if that also fails. Videos that did not
+need a sign-in download normally.
+
+[abe]: https://github.com/yt-dlp/yt-dlp/issues/10927
+[lock]: https://github.com/yt-dlp/yt-dlp/issues/7271
 
 `yt-dlp.exe` is bundled inside the exe — nothing to install. If YouTube changes
 something and downloads start failing, drop a newer `yt-dlp.exe` into

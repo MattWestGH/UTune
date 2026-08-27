@@ -8,6 +8,7 @@ const Download = (() => {
     quality: 'm4a',
     playlist: false,
     cookiesFromBrowser: '',
+    cookiesFile: '',
   };
 
   function isLikelyUrl(text) {
@@ -46,6 +47,8 @@ const Download = (() => {
 
   function onProgress(evt) {
     const job = jobs.get(evt.jobId) || { key: evt.jobId };
+    // Real progress supersedes a one-off notice, which would otherwise stick.
+    if (!evt.notice && evt.percent > 0) delete job.notice;
     Object.assign(job, evt, { key: evt.jobId });
     jobs.set(evt.jobId, job);
 
@@ -62,6 +65,7 @@ const Download = (() => {
   }
 
   function phaseLabel(job) {
+    if (job.notice && job.phase !== 'error' && job.phase !== 'done') return job.notice;
     switch (job.phase) {
       case 'queued': return 'Queued';
       case 'starting': return 'Looking it up…';
@@ -139,16 +143,53 @@ const Download = (() => {
       el('span', { text: 'Grab the whole playlist when the link has one' }),
     ]);
 
+    const cookieNote = el('div', { class: 'field-note' });
+
+    const describeCookies = () => {
+      if (options.cookiesFile) {
+        cookieNote.textContent = 'Using ' + options.cookiesFile.split(/[\\/]/).pop();
+        cookieNote.classList.remove('warn');
+      } else if (options.cookiesFromBrowser === 'firefox') {
+        cookieNote.textContent = 'Firefox cookies usually work.';
+        cookieNote.classList.remove('warn');
+      } else if (options.cookiesFromBrowser) {
+        cookieNote.textContent =
+          'Chrome and Edge encrypt their cookies so other apps cannot read them. '
+          + 'This often fails - a cookies.txt file is the reliable option.';
+        cookieNote.classList.add('warn');
+      } else {
+        cookieNote.textContent = 'Only needed for age-restricted or private videos.';
+        cookieNote.classList.remove('warn');
+      }
+    };
+
     const cookiesSelect = el('select', {
       class: 'field-select',
-      onchange: (e) => { options.cookiesFromBrowser = e.target.value; },
+      onchange: async (e) => {
+        const value = e.target.value;
+        if (value === 'file') {
+          const picked = await window.utune.youtube.pickCookies();
+          if (!picked) {
+            cookiesSelect.value = options.cookiesFile ? 'file' : options.cookiesFromBrowser;
+            return;
+          }
+          options.cookiesFile = picked;
+          options.cookiesFromBrowser = '';
+        } else {
+          options.cookiesFile = '';
+          options.cookiesFromBrowser = value;
+        }
+        describeCookies();
+      },
     }, [
       el('option', { value: '', text: 'No sign-in (default)' }),
-      el('option', { value: 'chrome', text: 'Use Chrome cookies' }),
-      el('option', { value: 'edge', text: 'Use Edge cookies' }),
-      el('option', { value: 'firefox', text: 'Use Firefox cookies' }),
+      el('option', { value: 'file', text: 'Cookies.txt file — most reliable' }),
+      el('option', { value: 'firefox', text: 'Firefox cookies' }),
+      el('option', { value: 'chrome', text: 'Chrome cookies (often blocked)' }),
+      el('option', { value: 'edge', text: 'Edge cookies (often blocked)' }),
     ]);
-    cookiesSelect.value = options.cookiesFromBrowser;
+    cookiesSelect.value = options.cookiesFile ? 'file' : options.cookiesFromBrowser;
+    describeCookies();
 
     listNode = el('div', { class: 'dl-list' });
 
@@ -180,7 +221,11 @@ const Download = (() => {
         ]),
         el('div', { class: 'dl-options' }, [
           el('div', { class: 'field' }, [el('label', { class: 'field-label', text: 'Quality' }), qualitySelect]),
-          el('div', { class: 'field' }, [el('label', { class: 'field-label', text: 'Age-restricted videos' }), cookiesSelect]),
+          el('div', { class: 'field' }, [
+            el('label', { class: 'field-label', text: 'Age-restricted videos' }),
+            cookiesSelect,
+            cookieNote,
+          ]),
         ]),
         playlistToggle,
       ]),

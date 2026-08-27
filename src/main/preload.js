@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('utune', {
   youtube: {
     download: (url, opts) => invoke('yt:download', url, opts),
     cancel: (jobId) => invoke('yt:cancel', jobId),
+    pickCookies: () => invoke('yt:pickCookies'),
     onProgress: listen('yt:progress'),
   },
 
