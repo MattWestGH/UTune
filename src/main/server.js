@@ -29,7 +29,7 @@ function contentType(file) {
   return MIME[ext] || 'application/octet-stream';
 }
 
-const SERVED = ['media', 'covers', 'backgrounds', 'fonts', 'avatars', 'sounds'];
+const SERVED = ['media', 'covers', 'backgrounds', 'fonts', 'avatars', 'sounds', 'ambience', 'playlists'];
 
 let token = null;
 let baseUrl = null;

@@ -10,18 +10,25 @@
 <link rel="stylesheet" href="styles/components.css" />
 <link rel="stylesheet" href="styles/customizer.css" />
 <link rel="stylesheet" href="styles/profile.css" />
+<link rel="stylesheet" href="styles/cove.css" />
 </head>
 <body>
 
-<!-- Layer 0: the themeable backdrop -->
-<div id="backdrop">
-  <div id="backdrop-media"></div>
-  <div id="backdrop-tint"></div>
-  <div id="backdrop-grain"></div>
-  <div id="backdrop-vignette"></div>
-</div>
-
 <div id="app">
+
+  <!-- Layer 0: the themeable backdrop.
+       This lives INSIDE #app on purpose. #app carries the saturation/contrast
+       filter, and a filtered element is a backdrop root: backdrop-filter on its
+       descendants can only sample what is painted behind them *within* that
+       root. With the backdrop outside, the frosted glass had nothing to sample
+       and did precisely nothing. -->
+  <div id="backdrop">
+    <div id="backdrop-media"></div>
+    <div id="backdrop-tint"></div>
+    <div id="backdrop-grain"></div>
+    <div id="backdrop-vignette"></div>
+  </div>
+
 
   <!-- Custom title bar (frameless window) -->
   <header id="titlebar">
@@ -53,6 +60,7 @@
       <button class="nav-item" data-view="albums"><span class="nav-ico">▤</span><span>Albums</span></button>
       <button class="nav-item" data-view="artists"><span class="nav-ico">☺</span><span>Artists</span></button>
       <button class="nav-item" data-view="favorites"><span class="nav-ico">♥</span><span>Loved</span></button>
+      <button class="nav-item" data-view="cove"><span class="nav-ico">❋</span><span>Cozy Cove</span></button>
     </div>
 
     <div class="nav-group">
@@ -160,12 +168,16 @@
 <script src="js/theme-schema.js"></script>
 <script src="js/theme-presets.js"></script>
 <script src="js/theme.js"></script>
+<script src="js/audio-graph.js"></script>
 <script src="js/state.js"></script>
 <script src="js/profile.js"></script>
 <script src="js/player.js"></script>
 <script src="js/visualizer.js"></script>
+<script src="js/equalizer.js"></script>
+<script src="js/ambience.js"></script>
 <script src="js/views.js"></script>
 <script src="js/settings-views.js"></script>
+<script src="js/cove.js"></script>
 <script src="js/download.js"></script>
 <script src="js/customizer.js"></script>
 <script src="js/app.js"></script>

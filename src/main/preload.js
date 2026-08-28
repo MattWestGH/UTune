@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('utune', {
     toggleMaximize: () => invoke('window:maximize'),
     close: () => invoke('window:close'),
     isMaximized: () => invoke('window:isMaximized'),
+    setFullScreen: (on) => invoke('window:setFullScreen', on),
     onState: listen('window:state'),
   },
 
@@ -45,6 +46,13 @@ contextBridge.exposeInMainWorld('utune', {
     update: (id, patch) => invoke('pl:update', id, patch),
     remove: (id) => invoke('pl:delete', id),
     add: (id, trackIds) => invoke('pl:add', id, trackIds),
+    pickImage: (id) => invoke('pl:pickImage', id),
+  },
+
+  cove: {
+    pickSounds: () => invoke('cove:pickSounds'),
+    listSounds: () => invoke('cove:listSounds'),
+    deleteSound: (name) => invoke('cove:deleteSound', name),
   },
 
   youtube: {

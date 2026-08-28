@@ -137,6 +137,11 @@ app repaints as you drag.
 | **Typography** | Any font installed on the PC, or drop in your own `.ttf`/`.otf`/`.woff`. Separate body and heading fonts, weights, sizes, letter spacing, line height, casing. |
 | **Shape & borders** | Corner radius per element type, border width and style (solid, dashed, dotted, double, groove, ridge), artwork borders, and an "outline every element" mode. |
 | **Effects** | Frosted glass, panel opacity, shadows, accent glow, hover lift, animation speed, film grain, vignette, plus whole-app saturation and contrast. |
+
+**Frosted glass** blurs whatever is behind the translucent panels — sidebar, top
+bar, player, cards. It only shows against a background with detail, so with a
+plain gradient it does very little; set an image or video background and lower
+*Panel opacity* to see it properly.
 | **Background** | Solid, gradient, animated gradient, image/GIF or looping video. Fit, zoom, blur, opacity, tint, and six motion styles (pan, breathing zoom, drift, sway, spin) — optionally pulsing in time with the music. |
 | **Layout** | Sidebar width, player height, row height, spacing, artwork size, visualiser style (bars, waveform, mirrored, dots, blocks), and the app's name in the title bar. |
 
@@ -149,6 +154,48 @@ Cotton Candy. **Surprise me** generates a fresh coherent palette at random.
 
 Looks can be **saved** by name, **exported** to a `.utunetheme.json` file and
 **imported** again. Any single control can be reset with the ↺ next to it.
+
+## Cozy Cove
+
+An ambient mixer: rain, heavy downpour, distant thunder, ocean waves, a stream,
+wind, rustling trees, crickets, birdsong and a crackling fire. Each has its own
+level, so they layer.
+
+**Nothing loops.** The built-in sounds are generated as they play — filtered
+noise shaped by slow modulation — so there is no loop point to notice and they
+add nothing to the download. It is also very light: a handful of audio nodes per
+active layer.
+
+**Add your own** with the button: any audio file is imported and looped with a
+crossfade, which matters because recordings are rarely trimmed to a clean loop.
+Generated sounds handle rain and wind convincingly; birdsong is the one that
+really benefits from a real recording.
+
+*Set the scene* applies a whole backdrop — Deep forest, Rainy window, Quiet
+shore, Fireside, Summer night — and switches on the layers that suit it.
+
+**Immersive mode** hides the sidebar, title bar and player and goes fullscreen.
+Press **Escape**, or click anywhere within 200px of an edge, to bring the menus
+back. The middle of the screen stays clickable so the mixer keeps working.
+
+Cove audio runs through the same volume control and the same ceiling as music.
+
+## Equaliser
+
+Ten bands on the standard ISO octave centres (31 Hz – 16 kHz), ±12 dB, in
+**Settings**. Presets follow the usual consumer-audio set — Acoustic, Bass
+Booster/Reducer, Classical, Dance, Deep, Electronic, Hip-Hop, Jazz, Latin,
+Loudness, Lounge, Piano, Pop, R&B, Rock, Small Speakers, Spoken Word, Treble
+Booster/Reducer, Vocal Booster.
+
+Boosting bands would otherwise make the output louder than the volume ceiling
+allows, so the graph applies the inverse of the largest positive band gain: a
++6 dB preset trims the output by 6 dB, and no curve can ever be louder than flat.
+The amount is shown under the sliders.
+
+That correction is a fixed number, recalculated only when the EQ changes. It is
+deliberately **not** a compressor or limiter — those move the level while you
+listen, which is exactly what must not happen.
 
 ## Volume
 
@@ -183,6 +230,11 @@ five-second cap, which only ever ramps down and exists to avoid a click.
 
 Right-click any track for play next, queue, playlists, edit details, change
 artwork, show file, or delete.
+
+## Playlists
+
+*Edit details* on a playlist sets a name, a description and its own artwork.
+Without chosen artwork it falls back to the first track's cover.
 
 ## Rebuilding
 

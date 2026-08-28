@@ -126,6 +126,7 @@ on('window:maximize', () => {
 });
 on('window:close', () => win && win.close());
 on('window:isMaximized', () => !!(win && win.isMaximized()));
+on('window:setFullScreen', (on) => { if (win) win.setFullScreen(!!on); return !!(win && win.isFullScreen()); });
 
 on('app:mediaBase', () => server.getBaseUrl());
 on('app:recoveredFrom', () => recoveredFrom);
@@ -175,6 +176,31 @@ on('lib:pickCover', async (trackId) => {
   });
   if (res.canceled) return null;
   return library.setTrackCover(trackId, res.filePaths[0]);
+});
+
+on('cove:pickSounds', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Add ambience',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Audio', extensions: ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac', 'aac', 'webm'] }],
+  });
+  if (res.canceled) return [];
+  return res.filePaths.map((p) => storeAsset(p, DIRS.ambience)).filter(Boolean);
+});
+
+on('cove:listSounds', () => safeList(DIRS.ambience));
+on('cove:deleteSound', (name) => safeDelete(DIRS.ambience, name));
+
+on('pl:pickImage', async (playlistId) => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Choose playlist artwork',
+    properties: ['openFile'],
+    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'] }],
+  });
+  if (res.canceled) return null;
+  const stored = storeAsset(res.filePaths[0], DIRS.playlists);
+  if (!stored) return null;
+  return library.updatePlaylist(playlistId, { image: stored.name });
 });
 
 on('pl:create', (name) => library.createPlaylist(name));

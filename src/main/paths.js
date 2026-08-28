@@ -27,6 +27,8 @@ const DIRS = {
   backgrounds: path.join(DATA_ROOT, 'backgrounds'),
   fonts: path.join(DATA_ROOT, 'fonts'),
   avatars: path.join(DATA_ROOT, 'avatars'),
+  ambience: path.join(DATA_ROOT, 'ambience'),
+  playlists: path.join(DATA_ROOT, 'playlists'),
   sounds: path.join(DATA_ROOT, 'sounds'),
   staging: path.join(DATA_ROOT, '.staging'),
 };

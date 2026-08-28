@@ -90,6 +90,102 @@ const SettingsViews = (() => {
     ]);
   }
 
+  /* ------------------------------ equaliser ------------------------------ */
+
+  function eqSection() {
+    const eq = Equalizer.get();
+    const makeupNote = el('div', { class: 'field-note' });
+
+    const refreshNote = () => {
+      const db = Equalizer.makeupDb();
+      makeupNote.textContent = db < -0.05
+        ? `Output trimmed by ${Math.abs(db).toFixed(1)} dB so this curve is never louder than flat.`
+        : 'Boosts are compensated automatically, so no preset is louder than flat.';
+    };
+
+    const enable = el('input', { type: 'checkbox' });
+    enable.checked = eq.enabled;
+    enable.addEventListener('change', () => {
+      Equalizer.setEnabled(enable.checked);
+      paintBands();
+      refreshNote();
+    });
+
+    const presetSelect = el('select', { class: 'field-select' },
+      Object.keys(Equalizer.PRESETS).map((name) => el('option', { value: name, text: name })));
+    if (!Equalizer.PRESETS[eq.preset]) {
+      presetSelect.appendChild(el('option', { value: 'Custom', text: 'Custom' }));
+    }
+    presetSelect.value = eq.preset;
+    presetSelect.addEventListener('change', () => {
+      Equalizer.usePreset(presetSelect.value);
+      enable.checked = Equalizer.get().enabled;
+      paintBands();
+      refreshNote();
+    });
+
+    const bandsNode = el('div', { class: 'eq-bands' });
+
+    function paintBands() {
+      const cur = Equalizer.get();
+      bandsNode.innerHTML = '';
+      Equalizer.BANDS.forEach((hz, i) => {
+        const slider = el('input', {
+          type: 'range', class: 'eq-slider', orient: 'vertical',
+          min: -Equalizer.RANGE, max: Equalizer.RANGE, step: 0.5,
+          value: cur.gains[i],
+        });
+        const readout = el('div', { class: 'eq-db', text: fmtDb(cur.gains[i]) });
+        slider.addEventListener('input', () => {
+          Equalizer.setBand(i, parseFloat(slider.value));
+          readout.textContent = fmtDb(parseFloat(slider.value));
+          enable.checked = true;
+          const now = Equalizer.get();
+          if (!Equalizer.PRESETS[now.preset] && presetSelect.value !== 'Custom') {
+            if (!$('option[value="Custom"]', presetSelect)) {
+              presetSelect.appendChild(el('option', { value: 'Custom', text: 'Custom' }));
+            }
+          }
+          presetSelect.value = Equalizer.PRESETS[now.preset] ? now.preset : 'Custom';
+          refreshNote();
+        });
+        bandsNode.appendChild(el('div', { class: 'eq-band' }, [
+          readout, slider, el('div', { class: 'eq-hz', text: Equalizer.label(hz) }),
+        ]));
+      });
+    }
+
+    const fmtDb = (v) => (v > 0 ? '+' : '') + Number(v).toFixed(1);
+
+    paintBands();
+    refreshNote();
+
+    return el('section', { class: 'section' }, [
+      el('h2', { class: 'section-title', text: 'Equaliser' }),
+      el('div', { class: 'panel settings-panel' }, [
+        el('label', { class: 'setting-row' }, [
+          enable,
+          el('div', {}, [
+            el('div', { class: 'setting-label', text: 'Use the equaliser' }),
+            el('div', { class: 'field-note', text: 'Ten bands across the standard ISO octaves, 31 Hz to 16 kHz.' }),
+          ]),
+        ]),
+        el('div', { class: 'field' }, [
+          el('label', { class: 'field-label', text: 'Preset' }),
+          presetSelect,
+        ]),
+        bandsNode,
+        makeupNote,
+        el('div', { class: 'row-actions' }, [
+          el('button', {
+            class: 'ghost-btn small', text: 'Reset to flat',
+            onclick: () => { Equalizer.reset(); presetSelect.value = 'Flat'; paintBands(); refreshNote(); },
+          }),
+        ]),
+      ]),
+    ]);
+  }
+
   /* ------------------------------- settings ------------------------------- */
 
   function viewSettings() {
@@ -195,6 +291,8 @@ const SettingsViews = (() => {
           ]),
         ]),
       ]),
+
+      eqSection(),
 
       el('section', { class: 'section' }, [
         el('h2', { class: 'section-title', text: 'Shortcuts' }),

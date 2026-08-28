@@ -166,7 +166,15 @@ function setTrackCover(trackId, srcPath) {
 
 // --- playlists ---
 function createPlaylist(name) {
-  const pl = { id: id(), name: name || 'New Playlist', trackIds: [], createdAt: Date.now(), cover: null };
+  const pl = {
+    id: id(),
+    name: name || 'New Playlist',
+    description: '',
+    image: null,
+    trackIds: [],
+    createdAt: Date.now(),
+    cover: null,
+  };
   load().playlists.push(pl);
   save();
   return pl;
@@ -176,6 +184,8 @@ function updatePlaylist(playlistId, patch) {
   const pl = load().playlists.find((p) => p.id === playlistId);
   if (!pl) return null;
   if ('name' in patch) pl.name = patch.name;
+  if ('description' in patch) pl.description = String(patch.description || '').slice(0, 600);
+  if ('image' in patch) pl.image = patch.image;
   if ('trackIds' in patch) pl.trackIds = patch.trackIds.filter((t) => load().tracks.some((x) => x.id === t));
   save();
   return pl;

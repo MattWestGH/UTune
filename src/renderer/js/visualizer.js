@@ -3,37 +3,33 @@ const Visualizer = (() => {
   const canvas = $('#visualizer');
   const ctx = canvas.getContext('2d');
 
-  let audioCtx = null;
   let analyser = null;
-  let source = null;
   let freqData = null;
   let timeData = null;
   let running = false;
-  let failed = false;
 
+  // The graph itself lives in audio-graph.js so the equaliser and the ambience
+  // engine can share the same context and analyser.
   function attach(audioEl) {
-    if (failed || source) return;
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      source = audioCtx.createMediaElementSource(audioEl);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.7;
-      // Default range is -100..-30 dB, which leaves normal-volume music barely
-      // off the floor. Narrowing it puts everyday listening levels mid-scale.
-      analyser.minDecibels = -78;
-      analyser.maxDecibels = -22;
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
+    if (!analyser) {
+      const nodes = AudioGraph.attach(audioEl);
+      if (!nodes || !nodes.analyser) return;
+      analyser = nodes.analyser;
       freqData = new Uint8Array(analyser.frequencyBinCount);
       timeData = new Uint8Array(analyser.frequencyBinCount);
       start();
-    } catch (err) {
-      // If the graph cannot be built the audio element keeps playing on its own.
-      failed = true;
-      console.warn('visualiser unavailable', err);
     }
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    AudioGraph.resume();
+  }
+
+  /** Ambience can start the loop without any track being loaded. */
+  function attachContextOnly() {
+    const a = AudioGraph.getAnalyser();
+    if (!a || analyser) return;
+    analyser = a;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    timeData = new Uint8Array(analyser.frequencyBinCount);
+    start();
   }
 
   function resize() {
@@ -95,33 +91,35 @@ const Visualizer = (() => {
     requestAnimationFrame(frame);
 
     const vals = Theme.values();
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    if (!w || !h) return;
-    ctx.clearRect(0, 0, w, h);
-
-    if (!analyser || !vals.showVisualizer) return;
+    if (!analyser) return;
 
     analyser.getByteFrequencyData(freqData);
     analyser.getByteTimeDomainData(timeData);
 
-    const accent = cssVar('--accent') || '#c084fc';
-    const accent2 = cssVar('--accent-2') || accent;
-    const style = vals.visualStyle || 'bars';
-
     // Ignore the very top bins - they are mostly empty and waste width.
     const usable = Math.floor(freqData.length * 0.7);
     const average = updateGain(usable);
+
+    // The backdrop pulse is independent of the bars: it has its own switch in a
+    // different tab, so hiding the visualiser must not silently disable it.
+    if (vals.bgReactive) {
+      Theme.setPulse(1 + Math.min(1, average * gain) * 0.09);
+    }
+
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (!w || !h || !vals.showVisualizer) return;
+    ctx.clearRect(0, 0, w, h);
+
+    const accent = cssVar('--accent') || '#c084fc';
+    const accent2 = cssVar('--accent-2') || accent;
+    const style = vals.visualStyle || 'bars';
 
     if (style === 'wave') drawWave(w, h, accent);
     else if (style === 'mirror') drawBars(w, h, usable, accent, accent2, true);
     else if (style === 'dots') drawDots(w, h, usable, accent, accent2);
     else if (style === 'blocks') drawBlocks(w, h, usable, accent, accent2);
     else drawBars(w, h, usable, accent, accent2, false);
-
-    if (vals.bgReactive) {
-      Theme.setPulse(1 + Math.min(1, average * gain) * 0.09);
-    }
   }
 
   function gradientFor(w, a, b) {
@@ -214,5 +212,5 @@ const Visualizer = (() => {
 
   window.addEventListener('resize', debounce(resize, 120));
 
-  return { attach, resize, start };
+  return { attach, attachContextOnly, resize, start };
 })();

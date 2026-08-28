@@ -137,7 +137,9 @@ img { display: block; max-width: 100%; }
 #backdrop {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  /* Behind #app's content but inside its stacking context, so the frosted
+     glass on the panels above can sample it. */
+  z-index: -1;
   overflow: hidden;
   background: var(--bg-1, #120b1f);
 }

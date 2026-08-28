@@ -1,7 +1,7 @@
 {
   "name": "utune",
   "productName": "UTune",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "UTune - a visually free music player",
   "main": "src/main/main.js",
   "author": "Matt",

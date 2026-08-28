@@ -401,21 +401,19 @@ const Views = (() => {
     if (!pl) return emptyState('Playlist not found', 'It may have been deleted.');
     const tracks = Store.playlistTracks(pl).filter((t) => Store.matches(t, Store.state.search));
     const cover = tracks.find((t) => t.cover);
+    // Chosen artwork wins; otherwise borrow the first track's cover.
+    const art = pl.image ? assetUrl('playlists', pl.image)
+      : cover ? assetUrl('covers', cover.cover) : null;
 
     return el('div', {}, [
       header({
         eyebrow: 'Playlist',
         title: pl.name,
         subtitle: `${tracks.length} track${tracks.length === 1 ? '' : 's'}`,
-        art: cover ? assetUrl('covers', cover.cover) : null,
+        art,
         actions: [
           ...playAllActions(() => tracks),
-          ghostBtn('Rename', async () => {
-            const name = await askText({ title: 'Rename playlist', label: 'Name', value: pl.name });
-            if (!name) return;
-            await window.utune.playlists.update(pl.id, { name });
-            await Store.refresh();
-          }),
+          ghostBtn('Edit details', () => editPlaylistDialog(pl)),
           ghostBtn('Delete', async () => {
             const ok = await askConfirm({
               title: 'Delete playlist?',
@@ -428,8 +426,80 @@ const Views = (() => {
           }),
         ],
       }),
+      pl.description
+        ? el('p', { class: 'playlist-description', text: pl.description })
+        : null,
       trackList(tracks, { playlist: pl }),
     ]);
+  }
+
+  function editPlaylistDialog(pl) {
+    const nameInput = el('input', { class: 'field-input', type: 'text', value: pl.name, maxlength: 80 });
+    const descInput = el('textarea', { class: 'field-input profile-bio', rows: 4, maxlength: 600 });
+    descInput.value = pl.description || '';
+
+    const artHost = el('div', { class: 'pl-art-host' });
+    const paintArt = () => {
+      artHost.innerHTML = '';
+      const url = pl.image ? assetUrl('playlists', pl.image) : null;
+      artHost.appendChild(url
+        ? el('img', { src: url, alt: '' })
+        : el('div', { class: 'cover-fallback', text: '♪' }));
+    };
+    paintArt();
+
+    const form = el('form', {
+      class: 'modal-form',
+      onsubmit: async (e) => {
+        e.preventDefault();
+        closeModal();
+        await window.utune.playlists.update(pl.id, {
+          name: nameInput.value.trim() || pl.name,
+          description: descInput.value,
+        });
+        await Store.refresh();
+        toast('Playlist updated', 'good');
+      },
+    }, [
+      el('h3', { text: 'Playlist details' }),
+      el('div', { class: 'pl-edit' }, [
+        artHost,
+        el('div', { class: 'pl-edit-fields' }, [
+          el('div', { class: 'field' }, [
+            el('label', { class: 'field-label', text: 'Name' }), nameInput,
+          ]),
+          el('div', { class: 'row-actions' }, [
+            el('button', {
+              type: 'button', class: 'ghost-btn small', text: 'Choose artwork',
+              onclick: async () => {
+                const updated = await window.utune.playlists.pickImage(pl.id);
+                if (!updated) return;
+                pl.image = updated.image;
+                paintArt();
+                await Store.refresh();
+              },
+            }),
+            pl.image ? el('button', {
+              type: 'button', class: 'ghost-btn small', text: 'Remove',
+              onclick: async () => {
+                await window.utune.playlists.update(pl.id, { image: null });
+                pl.image = null;
+                paintArt();
+                await Store.refresh();
+              },
+            }) : null,
+          ]),
+        ]),
+      ]),
+      el('div', { class: 'field' }, [
+        el('label', { class: 'field-label', text: 'Description' }), descInput,
+      ]),
+      el('div', { class: 'modal-actions' }, [
+        el('button', { type: 'button', class: 'ghost-btn', text: 'Cancel', onclick: closeModal }),
+        el('button', { type: 'submit', class: 'primary-btn', text: 'Save' }),
+      ]),
+    ]);
+    openModal(form, { width: 520 });
   }
 
   /* ------------------------------- render ------------------------------- */
@@ -448,6 +518,7 @@ const Views = (() => {
         case 'playlist': return viewPlaylist(viewArg);
         case 'download': return Download.render();
         case 'customize': return Customizer.render();
+        case 'cove': return Cove.render();
         case 'profile': return SettingsViews.viewProfile();
         case 'settings': return SettingsViews.viewSettings();
         default: return viewHome();

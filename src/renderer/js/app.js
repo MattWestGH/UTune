@@ -283,6 +283,11 @@ async function boot() {
   // Must come before the chime: it restores the saved volume, and the chime is
   // scaled from it. Playing anything before this would use an unrelated level.
   Player.init();
+  // Build the audio chain up front so the equaliser applies even before the
+  // first track plays; the context resumes on the first gesture.
+  AudioGraph.attach(Player.audio);
+  Equalizer.load();
+  Cove.init();
 
   // Start the chime and raise the greeting before the rest of the UI paints,
   // so the app is never briefly visible underneath it.
