@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { DIRS } = require('./paths');
+const { DIRS, BUNDLED_DIRS } = require('./paths');
 
 /**
  * Tiny loopback file server for library media.
@@ -29,7 +29,7 @@ function contentType(file) {
   return MIME[ext] || 'application/octet-stream';
 }
 
-const SERVED = ['media', 'covers', 'backgrounds', 'fonts', 'avatars', 'sounds', 'ambience', 'playlists'];
+const SERVED = ['media', 'covers', 'backgrounds', 'fonts', 'avatars', 'sounds', 'ambience', 'playlists', 'builtin'];
 
 let token = null;
 let baseUrl = null;
@@ -64,7 +64,7 @@ function handle(req, res) {
   const name = parts.slice(2).join('/');
   if (!SERVED.includes(kind) || !name) return res.writeHead(404).end('not found');
 
-  const dir = DIRS[kind];
+  const dir = DIRS[kind] || BUNDLED_DIRS[kind];
   const full = path.normalize(path.join(dir, name));
   if (!full.startsWith(path.normalize(dir))) return res.writeHead(403).end('forbidden');
 

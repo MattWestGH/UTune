@@ -161,18 +161,35 @@ An ambient mixer: rain, heavy downpour, distant thunder, ocean waves, a stream,
 wind, rustling trees, crickets, birdsong and a crackling fire. Each has its own
 level, so they layer.
 
-**Nothing loops.** The built-in sounds are generated as they play — filtered
-noise shaped by slow modulation — so there is no loop point to notice and they
-add nothing to the download. It is also very light: a handful of audio nodes per
-active layer.
+Every layer loops with a **crossfade** — two overlapping copies of the recording,
+one fading in as the other fades out — because recordings are almost never
+trimmed to a clean loop point and a plain repeat clicks.
 
-**Add your own** with the button: any audio file is imported and looped with a
-crossfade, which matters because recordings are rarely trimmed to a clean loop.
-Generated sounds handle rain and wind convincingly; birdsong is the one that
-really benefits from a real recording.
+### Levelling
 
-*Set the scene* applies a whole backdrop — Deep forest, Rainy window, Quiet
-shore, Fireside, Summer night — and switches on the layers that suit it.
+The source recordings arrived roughly **30 dB apart**: crickets at −55 dBFS RMS
+against a downpour at −24. Two layers at the same slider position would have been
+nowhere near the same volume, so each file carries a measured `norm` gain that
+brings it to a common RMS, clamped so nothing clips.
+
+Those numbers live in `SOUNDS` in `src/renderer/js/ambience.js`. **If the audio
+files are ever replaced, re-measure and update them** or the balance goes.
+
+**Add your own** with the button — any audio file is imported and looped the same
+way. Imported sounds are not levelled, since there is nothing to measure against.
+
+### Styling the Cove
+
+The Cove has **its own look, stored separately** in `cove.json`, and nothing in it
+touches the theme set for the rest of the app. Background can be a gradient, an
+image, a GIF or a video, with control over gradient shape, angle and colours,
+movement style and speed, vignette, blur, tint and grain.
+
+Its backdrop is only on screen while the Cove is. Leave, and the normal
+background returns exactly as it was.
+
+*Set the scene* applies a whole look — Deep forest, Rainy window, Quiet shore,
+Fireside, Summer night — and switches on a few layers at low levels to build on.
 
 **Immersive mode** hides the sidebar, title bar and player and goes fullscreen.
 Press **Escape**, or click anywhere within 200px of an edge, to bring the menus

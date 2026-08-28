@@ -30,6 +30,15 @@
   </div>
 
 
+  <!-- Cozy Cove keeps its own backdrop, shown only inside the Cove so it can
+       never alter the theme the user set for the rest of the app. -->
+  <div id="cove-backdrop">
+    <div id="cove-media"></div>
+    <div id="cove-tint"></div>
+    <div id="cove-grain"></div>
+    <div id="cove-vignette"></div>
+  </div>
+
   <!-- Custom title bar (frameless window) -->
   <header id="titlebar">
     <div class="tb-drag">
@@ -175,6 +184,7 @@
 <script src="js/visualizer.js"></script>
 <script src="js/equalizer.js"></script>
 <script src="js/ambience.js"></script>
+<script src="js/cove-theme.js"></script>
 <script src="js/views.js"></script>
 <script src="js/settings-views.js"></script>
 <script src="js/cove.js"></script>

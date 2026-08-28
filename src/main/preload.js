@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('utune', {
     pickSounds: () => invoke('cove:pickSounds'),
     listSounds: () => invoke('cove:listSounds'),
     deleteSound: (name) => invoke('cove:deleteSound', name),
+    getTheme: () => invoke('cove:getTheme'),
+    saveTheme: (v) => invoke('cove:saveTheme', v),
   },
 
   youtube: {

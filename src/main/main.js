@@ -188,6 +188,9 @@ on('cove:pickSounds', async () => {
   return res.filePaths.map((p) => storeAsset(p, DIRS.ambience)).filter(Boolean);
 });
 
+on('cove:getTheme', () => readJson(FILES.cove, null));
+on('cove:saveTheme', (v) => { writeJson(FILES.cove, v); return true; });
+
 on('cove:listSounds', () => safeList(DIRS.ambience));
 on('cove:deleteSound', (name) => safeDelete(DIRS.ambience, name));
 

@@ -1,306 +1,71 @@
 /**
  * Cozy Cove's sound engine.
  *
- * The built-in sounds are generated rather than played from files. A short noise
- * buffer is looped and then shaped by filters and slow modulation, so there is
- * no loop point to hear - the texture never repeats. It also costs nothing to
- * ship and very little to run: a couple of nodes per active layer.
+ * Every layer is a real recording, looped with a crossfade: two overlapping
+ * copies of the buffer, one fading in as the other fades out, so the seam is
+ * inaudible. Recordings are almost never trimmed to a clean loop point, and a
+ * plain `loop = true` clicks.
  *
- * Imported files are handled the other way round, as real buffers, and looped
- * with a short crossfade so the seam does not click.
+ * `norm` is a per-file gain measured from the source material. The recordings
+ * arrived with about 30 dB between the quietest and the loudest - crickets at
+ * -55 dBFS RMS against a downpour at -24 - so without this, two layers at the
+ * same slider position would be nowhere near the same volume. Each gain brings
+ * the file to a common RMS, clamped so nothing can clip.
  *
  * Everything mixes into AudioGraph's ambience bus, which sits under the same
- * volume ceiling as music. Layer sliders set the balance between sounds; the
- * player's volume still sets how loud the whole thing is.
+ * volume ceiling as music.
  */
 const Ambience = (() => {
-  const layers = new Map();       // id -> { gain, nodes[], stop() }
-  let noiseBuffers = null;
-  let customBuffers = new Map();  // filename -> AudioBuffer
+  const layers = new Map();       // id -> { gain, stop() }
+  const buffers = new Map();      // url -> AudioBuffer
+  let customSounds = [];
 
-  let state = { levels: {}, master: 0.7, playing: false };
+  let state = { levels: {}, master: 0.5, playing: false };
   const listeners = new Set();
   const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
   const emit = () => listeners.forEach((fn) => fn(state));
 
-  /* ----------------------------- the catalogue ----------------------------- */
-
+  /* ----------------------------- the catalogue -----------------------------
+   * norm values come from measuring each file's RMS and levelling to the median.
+   * Re-measure and update these if the files are ever replaced.
+   */
   const SOUNDS = [
-    { id: 'rain',     name: 'Rain',           icon: '☂', build: buildRain },
-    { id: 'downpour', name: 'Heavy downpour', icon: '☔', build: buildDownpour },
-    { id: 'thunder',  name: 'Distant thunder',icon: '☁', build: buildThunder },
-    { id: 'waves',    name: 'Ocean waves',    icon: '≈', build: buildWaves },
-    { id: 'stream',   name: 'Stream',         icon: '⌁', build: buildStream },
-    { id: 'wind',     name: 'Wind',           icon: '❋', build: buildWind },
-    { id: 'leaves',   name: 'Rustling trees', icon: '❦', build: buildLeaves },
-    { id: 'crickets', name: 'Crickets',       icon: '♪', build: buildCrickets },
-    { id: 'birds',    name: 'Birdsong',       icon: '❥', build: buildBirds },
-    { id: 'fire',     name: 'Crackling fire', icon: '✦', build: buildFire },
+    { id: 'rain',     name: 'Rain',            icon: '☂', file: 'rain.mp3',     norm: 1.00 },
+    { id: 'downpour', name: 'Heavy downpour',  icon: '☔', file: 'downpour.mp3', norm: 0.27 },
+    { id: 'thunder',  name: 'Distant thunder', icon: '☁', file: 'thunder.mp3',  norm: 0.31 },
+    { id: 'waves',    name: 'Ocean waves',     icon: '≈', file: 'waves.mp3',    norm: 2.15 },
+    { id: 'stream',   name: 'Stream',          icon: '⌁', file: 'stream.mp3',   norm: 3.60 },
+    { id: 'wind',     name: 'Wind',            icon: '❋', file: 'wind.mp3',     norm: 0.29 },
+    { id: 'leaves',   name: 'Rustling trees',  icon: '❦', file: 'leaves.mp3',   norm: 1.38 },
+    { id: 'crickets', name: 'Crickets',        icon: '♪', file: 'crickets.mp3', norm: 9.26 },
+    { id: 'birds',    name: 'Birdsong',        icon: '❥', file: 'birds.mp3',    norm: 0.41 },
+    { id: 'fire',     name: 'Crackling fire',  icon: '✦', file: 'fire.mp3',     norm: 0.99 },
   ];
 
-  /* ------------------------------- noise ------------------------------- */
+  const byId = (id) => SOUNDS.find((s) => s.id === id);
 
-  // Generated once and shared by every layer.
-  function buffers(ctx) {
-    if (noiseBuffers) return noiseBuffers;
-    const seconds = 4;
-    const len = ctx.sampleRate * seconds;
+  /* ------------------------------- loading ------------------------------- */
 
-    const white = ctx.createBuffer(1, len, ctx.sampleRate);
-    const w = white.getChannelData(0);
-    for (let i = 0; i < len; i++) w[i] = Math.random() * 2 - 1;
-
-    // Brown noise: integrated white, which gives the -6 dB/octave slope that
-    // reads as wind and surf rather than hiss.
-    const brown = ctx.createBuffer(1, len, ctx.sampleRate);
-    const b = brown.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < len; i++) {
-      last = (last + 0.02 * w[i]) / 1.02;
-      b[i] = last * 3.5;
-    }
-
-    // Match the ends so the loop itself is seamless before any shaping.
-    const fade = Math.floor(ctx.sampleRate * 0.05);
-    for (let i = 0; i < fade; i++) {
-      const t = i / fade;
-      w[i] = w[i] * t + w[len - fade + i] * (1 - t);
-      b[i] = b[i] * t + b[len - fade + i] * (1 - t);
-    }
-
-    noiseBuffers = { white, brown };
-    return noiseBuffers;
-  }
-
-  const noiseSource = (ctx, kind) => {
-    const src = ctx.createBufferSource();
-    src.buffer = buffers(ctx)[kind];
-    src.loop = true;
-    return src;
-  };
-
-  /** Slow random drift, so a layer never sits perfectly still. */
-  function lfo(ctx, target, { rate = 0.08, depth = 1, base = 0 }) {
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = rate;
-    const amp = ctx.createGain();
-    amp.gain.value = depth;
-    osc.connect(amp).connect(target);
-    if (base !== null) target.value = base;
-    osc.start();
-    return [osc, amp];
-  }
-
-  /* --------------------------- the generators --------------------------- */
-
-  function buildRain(ctx, out) {
-    const src = noiseSource(ctx, 'white');
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass'; hp.frequency.value = 900;
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 7000;
-    const shimmer = ctx.createGain(); shimmer.gain.value = 0.75;
-    const nodes = lfo(ctx, shimmer.gain, { rate: 0.07, depth: 0.06, base: 0.75 });
-    src.connect(hp).connect(lp).connect(shimmer).connect(out);
-    src.start();
-    return [src, ...nodes];
-  }
-
-  function buildDownpour(ctx, out) {
-    const src = noiseSource(ctx, 'white');
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass'; hp.frequency.value = 350;
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 9000;
-    const body = ctx.createBiquadFilter();
-    body.type = 'peaking'; body.frequency.value = 500; body.gain.value = 4; body.Q.value = 0.8;
-    src.connect(hp).connect(body).connect(lp).connect(out);
-    src.start();
-    return [src];
-  }
-
-  function buildThunder(ctx, out) {
-    // Occasional low rumbles rather than a constant bed.
-    const gain = ctx.createGain(); gain.gain.value = 0;
-    const src = noiseSource(ctx, 'brown');
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 220;
-    src.connect(lp).connect(gain).connect(out);
-    src.start();
-
-    let timer = null;
-    const roll = () => {
-      const now = ctx.currentTime;
-      const peak = 0.5 + Math.random() * 0.5;
-      gain.gain.cancelScheduledValues(now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(peak, now + 0.4 + Math.random() * 0.5);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 3 + Math.random() * 3);
-      timer = setTimeout(roll, 12000 + Math.random() * 30000);
-    };
-    timer = setTimeout(roll, 3000 + Math.random() * 8000);
-    return [src, { stop: () => clearTimeout(timer) }];
-  }
-
-  function buildWaves(ctx, out) {
-    const src = noiseSource(ctx, 'brown');
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 900;
-    const swell = ctx.createGain(); swell.gain.value = 0.5;
-    // Two out-of-step swells so the sets do not fall into an obvious rhythm.
-    const a = lfo(ctx, swell.gain, { rate: 0.09, depth: 0.32, base: 0.5 });
-    const b = lfo(ctx, lp.frequency, { rate: 0.06, depth: 320, base: 900 });
-    src.connect(lp).connect(swell).connect(out);
-    src.start();
-    return [src, ...a, ...b];
-  }
-
-  function buildStream(ctx, out) {
-    const src = noiseSource(ctx, 'white');
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.6;
-    const trickle = ctx.createBiquadFilter();
-    trickle.type = 'peaking'; trickle.frequency.value = 3200; trickle.gain.value = 6; trickle.Q.value = 2;
-    const nodes = lfo(ctx, trickle.frequency, { rate: 0.5, depth: 700, base: 3200 });
-    src.connect(bp).connect(trickle).connect(out);
-    src.start();
-    return [src, ...nodes];
-  }
-
-  function buildWind(ctx, out) {
-    const src = noiseSource(ctx, 'brown');
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 500; lp.Q.value = 3;
-    const gust = ctx.createGain(); gust.gain.value = 0.6;
-    const a = lfo(ctx, lp.frequency, { rate: 0.05, depth: 340, base: 520 });
-    const b = lfo(ctx, gust.gain, { rate: 0.035, depth: 0.28, base: 0.6 });
-    src.connect(lp).connect(gust).connect(out);
-    src.start();
-    return [src, ...a, ...b];
-  }
-
-  function buildLeaves(ctx, out) {
-    const src = noiseSource(ctx, 'white');
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 0.9;
-    const rustle = ctx.createGain(); rustle.gain.value = 0.35;
-    const a = lfo(ctx, rustle.gain, { rate: 0.13, depth: 0.3, base: 0.4 });
-    const b = lfo(ctx, bp.frequency, { rate: 0.09, depth: 800, base: 2600 });
-    src.connect(bp).connect(rustle).connect(out);
-    src.start();
-    return [src, ...a, ...b];
-  }
-
-  function buildCrickets(ctx, out) {
-    const src = noiseSource(ctx, 'white');
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = 4600; bp.Q.value = 22;
-    // Chirp rhythm: a fast tremolo gated into short bursts.
-    const chirp = ctx.createGain(); chirp.gain.value = 0;
-    src.connect(bp).connect(chirp).connect(out);
-    src.start();
-
-    let timer = null;
-    const burst = () => {
-      const now = ctx.currentTime;
-      for (let i = 0; i < 3; i++) {
-        const t = now + i * 0.09;
-        chirp.gain.setValueAtTime(0, t);
-        chirp.gain.linearRampToValueAtTime(0.5, t + 0.012);
-        chirp.gain.linearRampToValueAtTime(0, t + 0.055);
-      }
-      timer = setTimeout(burst, 600 + Math.random() * 700);
-    };
-    burst();
-    return [src, { stop: () => clearTimeout(timer) }];
-  }
-
-  function buildBirds(ctx, out) {
-    // The least convincing of the generated sounds - real recordings are better
-    // here, which is what the import option is for.
-    const mix = ctx.createGain(); mix.gain.value = 0.28;
-    mix.connect(out);
-    let timer = null;
-
-    const chirp = () => {
-      const now = ctx.currentTime;
-      const notes = 2 + Math.floor(Math.random() * 3);
-      for (let n = 0; n < notes; n++) {
-        const t = now + n * (0.08 + Math.random() * 0.07);
-        const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        const top = 2200 + Math.random() * 1800;
-        osc.frequency.setValueAtTime(top * 0.7, t);
-        osc.frequency.exponentialRampToValueAtTime(top, t + 0.04);
-        osc.frequency.exponentialRampToValueAtTime(top * 0.8, t + 0.1);
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(0.0001, t);
-        env.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-        osc.connect(env).connect(mix);
-        osc.start(t);
-        osc.stop(t + 0.16);
-      }
-      timer = setTimeout(chirp, 1500 + Math.random() * 5000);
-    };
-    timer = setTimeout(chirp, 500 + Math.random() * 2000);
-    return [{ stop: () => clearTimeout(timer) }];
-  }
-
-  function buildFire(ctx, out) {
-    const src = noiseSource(ctx, 'brown');
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 1100;
-    const bed = ctx.createGain(); bed.gain.value = 0.45;
-    src.connect(lp).connect(bed).connect(out);
-    src.start();
-
-    // Crackles on top of the bed.
-    let timer = null;
-    const crack = () => {
-      const now = ctx.currentTime;
-      const s = ctx.createBufferSource();
-      s.buffer = buffers(ctx).white;
-      s.loop = true;
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = 1500 + Math.random() * 3000;
-      bp.Q.value = 6;
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0.0001, now);
-      env.gain.exponentialRampToValueAtTime(0.3 + Math.random() * 0.4, now + 0.005);
-      env.gain.exponentialRampToValueAtTime(0.0001, now + 0.05 + Math.random() * 0.09);
-      s.connect(bp).connect(env).connect(out);
-      s.start(now);
-      s.stop(now + 0.2);
-      timer = setTimeout(crack, 90 + Math.random() * 500);
-    };
-    crack();
-    return [src, { stop: () => clearTimeout(timer) }];
-  }
-
-  /* ------------------------------ imported ------------------------------ */
-
-  async function loadCustom(fileName) {
-    if (customBuffers.has(fileName)) return customBuffers.get(fileName);
+  async function loadBuffer(url) {
+    if (buffers.has(url)) return buffers.get(url);
     const ctx = AudioGraph.context();
     if (!ctx) return null;
-    const res = await fetch(assetUrl('ambience', fileName));
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('could not fetch ' + url);
     const buf = await ctx.decodeAudioData(await res.arrayBuffer());
-    customBuffers.set(fileName, buf);
+    buffers.set(url, buf);
     return buf;
   }
 
   /**
-   * Loops a real recording with overlapping copies, so the seam is crossfaded
-   * rather than butt-joined. Recordings are rarely trimmed to a clean loop.
+   * Crossfaded loop. Each pass starts FADE seconds before the previous one ends
+   * and rides an equal-power-ish ramp, so the overlap keeps a steady level.
    */
-  function buildCustom(ctx, out, buffer) {
-    const FADE = Math.min(1.5, buffer.duration * 0.25);
-    const period = buffer.duration - FADE;
+  function startLoop(ctx, out, buffer) {
+    const FADE = Math.min(2, buffer.duration * 0.2);
+    const period = Math.max(0.5, buffer.duration - FADE);
     let stopped = false;
-    const live = [];
+    const live = new Set();
 
     const fire = (at) => {
       if (stopped) return;
@@ -314,16 +79,21 @@ const Ambience = (() => {
       src.connect(g).connect(out);
       src.start(at);
       src.stop(at + period + FADE + 0.05);
-      live.push(src);
-      src.onended = () => {
-        const i = live.indexOf(src);
-        if (i >= 0) live.splice(i, 1);
-      };
-      setTimeout(() => fire(at + period), Math.max(50, period * 1000 - 300));
+      live.add(src);
+      src.onended = () => live.delete(src);
+      // Queue the next pass a little early so scheduling is never late.
+      timer = setTimeout(() => fire(at + period), Math.max(50, period * 1000 - 400));
     };
 
+    let timer = null;
     fire(ctx.currentTime + 0.05);
-    return [{ stop: () => { stopped = true; live.forEach((s) => { try { s.stop(); } catch (e) {} }); } }];
+
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      live.forEach((s) => { try { s.stop(); } catch (err) { /* already done */ } });
+      live.clear();
+    };
   }
 
   /* ------------------------------- control ------------------------------- */
@@ -334,15 +104,20 @@ const Ambience = (() => {
     return bus;
   }
 
+  const layerGain = (id, level) => {
+    const sound = byId(id);
+    return level * (sound ? sound.norm : 1);
+  };
+
   async function setLevel(id, level) {
     state.levels[id] = Math.max(0, Math.min(1, level));
     const on = state.levels[id] > 0;
 
     if (on && !layers.has(id)) await startLayer(id);
-    if (!on && layers.has(id)) stopLayer(id);
+    else if (!on && layers.has(id)) stopLayer(id);
 
     const layer = layers.get(id);
-    if (layer) layer.gain.gain.value = state.levels[id];
+    if (layer) layer.gain.gain.value = layerGain(id, state.levels[id]);
 
     state.playing = layers.size > 0;
     busGain();
@@ -353,7 +128,6 @@ const Ambience = (() => {
   async function startLayer(id) {
     const ctx = AudioGraph.context();
     if (!ctx) return;
-    // Ambience can be the only thing playing, so make sure the graph exists.
     if (!AudioGraph.isReady()) AudioGraph.attach(Player.audio);
     AudioGraph.resume();
     Visualizer.attachContextOnly();
@@ -361,29 +135,32 @@ const Ambience = (() => {
     const bus = busGain();
     if (!bus) return;
 
+    const sound = byId(id);
+    const url = sound ? assetUrl('builtin', sound.file) : assetUrl('ambience', id);
+
+    let buffer;
+    try {
+      buffer = await loadBuffer(url);
+    } catch (err) {
+      toast('Could not load that sound', 'bad');
+      return;
+    }
+    if (!buffer) return;
+    // A second call may have arrived while decoding.
+    if (layers.has(id)) return;
+
     const gain = ctx.createGain();
-    gain.gain.value = state.levels[id] || 0;
+    gain.gain.value = layerGain(id, state.levels[id] || 0);
     gain.connect(bus);
 
-    const sound = SOUNDS.find((s) => s.id === id);
-    let nodes;
-    if (sound) {
-      nodes = sound.build(ctx, gain);
-    } else {
-      const buf = await loadCustom(id).catch(() => null);
-      if (!buf) return;
-      nodes = buildCustom(ctx, gain, buf);
-    }
-    layers.set(id, { gain, nodes });
+    const stop = startLoop(ctx, gain, buffer);
+    layers.set(id, { gain, stop });
   }
 
   function stopLayer(id) {
     const layer = layers.get(id);
     if (!layer) return;
-    for (const n of layer.nodes || []) {
-      try { if (n.stop) n.stop(); } catch (err) { /* already stopped */ }
-      try { if (n.disconnect) n.disconnect(); } catch (err) { /* fine */ }
-    }
+    try { layer.stop(); } catch (err) { /* already stopped */ }
     try { layer.gain.disconnect(); } catch (err) { /* fine */ }
     layers.delete(id);
   }
@@ -403,8 +180,20 @@ const Ambience = (() => {
     persist();
   }
 
-  // Follows the player's volume, so the ceiling applies here too.
   const syncVolume = () => busGain();
+
+  async function refreshCustom() {
+    customSounds = await window.utune.cove.listSounds();
+    return customSounds;
+  }
+
+  /** Built-ins plus anything imported, in one list for the grid. */
+  const catalogue = () => [
+    ...SOUNDS,
+    ...customSounds.map((f) => ({
+      id: f.name, name: f.name.replace(/\.[^.]+$/, ''), icon: '❉', norm: 1, custom: true,
+    })),
+  ];
 
   const persist = debounce(() => {
     try {
@@ -416,7 +205,8 @@ const Ambience = (() => {
     try {
       const saved = JSON.parse(localStorage.getItem('utune.cove'));
       if (saved) {
-        state.master = typeof saved.master === 'number' ? saved.master : 0.7;
+        state.master = typeof saved.master === 'number' ? saved.master : 0.5;
+        // Levels are remembered but nothing starts playing on its own.
         state.levels = saved.levels || {};
       }
     } catch (err) { /* defaults are fine */ }
@@ -424,7 +214,7 @@ const Ambience = (() => {
   }
 
   return {
-    SOUNDS, subscribe, restore, syncVolume,
+    SOUNDS, catalogue, refreshCustom, subscribe, restore, syncVolume,
     get: () => state,
     setLevel, setMaster, stopAll,
     isActive: (id) => layers.has(id),

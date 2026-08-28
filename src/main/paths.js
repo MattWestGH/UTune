@@ -38,6 +38,7 @@ const FILES = {
   theme: path.join(DATA_ROOT, 'theme.json'),
   settings: path.join(DATA_ROOT, 'settings.json'),
   profile: path.join(DATA_ROOT, 'profile.json'),
+  cove: path.join(DATA_ROOT, 'cove.json'),
 };
 
 function ensureDirs() {
@@ -113,6 +114,10 @@ function bundled(...parts) {
 
 const ytDlpPath = () => bundled('bin', 'yt-dlp.exe');
 
+// Built-in cove ambience ships with the app and is served straight from the
+// bundle, so it cannot be deleted the way imported sounds can.
+const BUNDLED_DIRS = { builtin: bundled('ambience') };
+
 /**
  * The default start-up chime is copied into the data folder on first run rather
  * than played from inside the app bundle, so the sounds folder is the only
@@ -132,6 +137,6 @@ function ensureDefaultSound() {
 }
 
 module.exports = {
-  DIRS, FILES, ensureDirs, ytDlpPath, bundled, ensureDefaultSound, DEFAULT_SOUND, DATA_ROOT,
+  DIRS, FILES, BUNDLED_DIRS, ensureDirs, ytDlpPath, bundled, ensureDefaultSound, DEFAULT_SOUND, DATA_ROOT,
   recoverPreviousData, rememberLocation,
 };

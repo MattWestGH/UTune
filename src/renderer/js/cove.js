@@ -13,50 +13,59 @@ const Cove = (() => {
 
   /* ------------------------------- vibes ------------------------------- */
 
-  // Each applies a whole backdrop, so the room matches what you are hearing.
+  /**
+   * Scenes set the Cove's own look and switch on layers that suit it. They write
+   * to CoveTheme, never to Theme, so using one never disturbs the theme chosen
+   * for the rest of the app.
+   *
+   * Levels are kept low on purpose: these are a starting point to build on, not
+   * a finished mix, and layering three at 0.5 was overwhelming.
+   */
   const VIBES = [
     {
-      id: 'cove', name: 'Cozy Cove', suggests: [],
-      values: { bgType: 'animated', gradientType: 'linear', gradientAngle: 200,
-        bgColor1: '#0b1f2a', bgColor2: '#123b4a', bgColor3: '#2a5f63',
-        bgMotion: 'drift', bgMotionSpeed: 80, bgBlur: 0, bgTintOpacity: 0.1, vignette: 0.35 },
+      id: 'cove', name: 'Cozy Cove', suggests: {},
+      values: { bgType: 'gradient', gradientType: 'linear', gradientAngle: 200,
+        color1: '#0b1f2a', color2: '#123b4a', color3: '#2a5f63',
+        motion: 'drift', motionSpeed: 80, blur: 0, tintOpacity: 0.1, vignette: 0.35 },
     },
     {
-      id: 'forest', name: 'Deep forest', suggests: ['leaves', 'birds', 'wind'],
-      values: { bgType: 'animated', gradientType: 'radial', gradientAngle: 150,
-        bgColor1: '#07130c', bgColor2: '#14301b', bgColor3: '#2f5a32',
-        bgMotion: 'sway', bgMotionSpeed: 90, bgTintOpacity: 0.12, vignette: 0.45 },
+      id: 'forest', name: 'Deep forest', suggests: { leaves: 0.3, birds: 0.22, wind: 0.18 },
+      values: { bgType: 'gradient', gradientType: 'radial', gradientAngle: 150,
+        color1: '#07130c', color2: '#14301b', color3: '#2f5a32',
+        motion: 'sway', motionSpeed: 90, blur: 0, tintOpacity: 0.12, vignette: 0.45 },
     },
     {
-      id: 'rainy', name: 'Rainy window', suggests: ['rain', 'thunder'],
-      values: { bgType: 'animated', gradientType: 'linear', gradientAngle: 175,
-        bgColor1: '#0a0f18', bgColor2: '#1b2735', bgColor3: '#3b4a5c',
-        bgMotion: 'drift', bgMotionSpeed: 55, bgBlur: 6, bgTintOpacity: 0.18, vignette: 0.5 },
+      id: 'rainy', name: 'Rainy window', suggests: { rain: 0.35, thunder: 0.2 },
+      values: { bgType: 'gradient', gradientType: 'linear', gradientAngle: 175,
+        color1: '#0a0f18', color2: '#1b2735', color3: '#3b4a5c',
+        motion: 'drift', motionSpeed: 55, blur: 6, tintOpacity: 0.18, vignette: 0.5 },
     },
     {
-      id: 'shore', name: 'Quiet shore', suggests: ['waves', 'wind'],
-      values: { bgType: 'animated', gradientType: 'linear', gradientAngle: 195,
-        bgColor1: '#071a2b', bgColor2: '#0f3d55', bgColor3: '#4a7f8c',
-        bgMotion: 'sway', bgMotionSpeed: 70, bgTintOpacity: 0.1, vignette: 0.38 },
+      id: 'shore', name: 'Quiet shore', suggests: { waves: 0.35, wind: 0.15 },
+      values: { bgType: 'gradient', gradientType: 'linear', gradientAngle: 195,
+        color1: '#071a2b', color2: '#0f3d55', color3: '#4a7f8c',
+        motion: 'sway', motionSpeed: 70, blur: 0, tintOpacity: 0.1, vignette: 0.38 },
     },
     {
-      id: 'fireside', name: 'Fireside', suggests: ['fire', 'wind'],
-      values: { bgType: 'animated', gradientType: 'radial', gradientAngle: 160,
-        bgColor1: '#160a06', bgColor2: '#3d1a0c', bgColor3: '#8a3d16',
-        bgMotion: 'zoom', bgMotionSpeed: 75, bgTintOpacity: 0.15, vignette: 0.55 },
+      id: 'fireside', name: 'Fireside', suggests: { fire: 0.35, wind: 0.12 },
+      values: { bgType: 'gradient', gradientType: 'radial', gradientAngle: 160,
+        color1: '#160a06', color2: '#3d1a0c', color3: '#8a3d16',
+        motion: 'zoom', motionSpeed: 75, blur: 0, tintOpacity: 0.15, vignette: 0.55 },
     },
     {
-      id: 'night', name: 'Summer night', suggests: ['crickets', 'wind'],
-      values: { bgType: 'animated', gradientType: 'linear', gradientAngle: 205,
-        bgColor1: '#05060f', bgColor2: '#12132e', bgColor3: '#2b2a55',
-        bgMotion: 'drift', bgMotionSpeed: 100, bgTintOpacity: 0.14, vignette: 0.5 },
+      id: 'night', name: 'Summer night', suggests: { crickets: 0.3, wind: 0.12 },
+      values: { bgType: 'gradient', gradientType: 'linear', gradientAngle: 205,
+        color1: '#05060f', color2: '#12132e', color3: '#2b2a55',
+        motion: 'drift', motionSpeed: 100, blur: 0, tintOpacity: 0.14, vignette: 0.5 },
     },
   ];
 
   async function useVibe(vibe) {
-    Theme.setMany(vibe.values);
-    for (const id of vibe.suggests) {
-      if (!Ambience.get().levels[id]) await Ambience.setLevel(id, 0.5);
+    CoveTheme.setMany(vibe.values);
+    // Replace the mix rather than piling on top of whatever was already running.
+    Ambience.stopAll();
+    for (const [id, level] of Object.entries(vibe.suggests)) {
+      await Ambience.setLevel(id, level);
     }
     render();
   }
@@ -111,17 +120,18 @@ const Cove = (() => {
     }
   }
 
-  function init() {
+  async function init() {
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('mousedown', onClick, true);
     Ambience.restore();
     Ambience.subscribe(() => { if (Store.state.view === 'cove') repaintLevels(); });
     Player.subscribe(() => Ambience.syncVolume());
-    refreshCustom();
-  }
+    await CoveTheme.init();
+    await Ambience.refreshCustom();
 
-  async function refreshCustom() {
-    customSounds = await window.utune.cove.listSounds();
+    // The Cove's backdrop is only up while the Cove is.
+    Store.subscribe(() => CoveTheme.setVisible(Store.state.view === 'cove'));
+    CoveTheme.setVisible(Store.state.view === 'cove');
   }
 
   /* ------------------------------- render ------------------------------- */
@@ -181,6 +191,116 @@ const Cove = (() => {
     ]);
   }
 
+  /* ---------------------------- style controls ---------------------------- */
+
+  // Small self-contained controls. The Cove deliberately does not reuse the
+  // customiser's schema - its settings are its own and must stay separate.
+  function styleControls() {
+    const v = CoveTheme.get();
+    const row = (label, control, wide) =>
+      el('div', { class: 'ctrl' + (wide ? ' ctrl-wide' : '') }, [
+        el('div', { class: 'ctrl-label' }, [el('span', { text: label })]),
+        control,
+      ]);
+
+    const colour = (key) => {
+      const picker = el('input', { type: 'color', class: 'color-picker', value: v[key] });
+      const chip = el('label', { class: 'color-chip', style: { background: v[key] } }, [picker]);
+      picker.addEventListener('input', () => {
+        chip.style.background = picker.value;
+        CoveTheme.set(key, picker.value);
+      });
+      return el('div', { class: 'ctrl-body color-ctrl' }, [chip]);
+    };
+
+    const slider = (key, min, max, step, unit) => {
+      const input = el('input', { type: 'range', class: 'range-input', min, max, step, value: v[key] });
+      const out = el('span', { class: 'range-unit', text: v[key] + (unit || '') });
+      input.addEventListener('input', () => {
+        CoveTheme.set(key, parseFloat(input.value));
+        out.textContent = input.value + (unit || '');
+      });
+      return el('div', { class: 'ctrl-body range-ctrl' }, [input, out]);
+    };
+
+    const choice = (key, options, onAfter) => {
+      const sel = el('select', { class: 'field-select' },
+        options.map(([val, text]) => el('option', { value: val, text })));
+      sel.value = v[key];
+      sel.addEventListener('change', () => {
+        CoveTheme.set(key, sel.value);
+        if (onAfter) onAfter();
+      });
+      return el('div', { class: 'ctrl-body' }, [sel]);
+    };
+
+    const isGradient = v.bgType === 'gradient';
+    const usesAsset = v.bgType === 'image' || v.bgType === 'video';
+
+    const assetPicker = el('div', { class: 'ctrl-body bg-ctrl' }, [
+      el('div', { class: 'field-note', text: v.asset || 'Nothing chosen yet.' }),
+      el('button', {
+        class: 'ghost-btn small', text: '＋ Choose image, GIF or video',
+        onclick: async () => {
+          const added = await window.utune.assets.pickBackground();
+          if (!added.length) return;
+          const name = added[0].name;
+          const isVideo = /\.(mp4|webm|mov|mkv)$/i.test(name);
+          CoveTheme.setMany({ asset: name, bgType: isVideo ? 'video' : 'image' });
+          render();
+        },
+      }),
+    ]);
+
+    const controls = [
+      row('Background', choice('bgType', [
+        ['gradient', 'Gradient'], ['image', 'Image or GIF'], ['video', 'Video'],
+      ], render)),
+    ];
+
+    if (isGradient) {
+      controls.push(
+        row('Shape', choice('gradientType', [
+          ['linear', 'Linear'], ['radial', 'Radial'], ['conic', 'Conic'],
+        ])),
+        row('Angle', slider('gradientAngle', 0, 360, 1, '°')),
+        row('Colour A', colour('color1')),
+        row('Colour B', colour('color2')),
+        row('Colour C', colour('color3')),
+      );
+    }
+
+    if (usesAsset) {
+      controls.push(
+        row('File', assetPicker, true),
+        row('Fit', choice('fit', [
+          ['cover', 'Cover'], ['contain', 'Contain'], ['tile', 'Tile'], ['center', 'Centre'],
+        ])),
+      );
+    }
+
+    controls.push(
+      row('Movement', choice('motion', [
+        ['none', 'Still'], ['pan', 'Slow pan'], ['zoom', 'Breathing zoom'],
+        ['drift', 'Drift'], ['sway', 'Sway'], ['spin', 'Spin'],
+      ], render)),
+    );
+
+    if (v.motion !== 'none') {
+      // Higher number = longer cycle = slower, so the label is inverted.
+      controls.push(row('Speed', slider('motionSpeed', 10, 160, 1, 's per cycle')));
+    }
+
+    controls.push(
+      row('Vignette', slider('vignette', 0, 1, 0.01)),
+      row('Blur', slider('blur', 0, 40, 1, 'px')),
+      row('Tint strength', slider('tintOpacity', 0, 1, 0.01)),
+      row('Grain', slider('grain', 0, 1, 0.01)),
+    );
+
+    return el('div', { class: 'ctrl-grid' }, controls);
+  }
+
   function render() {
     const state = Ambience.get();
 
@@ -190,20 +310,13 @@ const Cove = (() => {
     });
     master.addEventListener('input', () => Ambience.setMaster(master.value / 100));
 
-    const all = [
-      ...Ambience.SOUNDS,
-      ...customSounds.map((f) => ({
-        id: f.name, name: f.name.replace(/\.[^.]+$/, ''), icon: '❉', custom: true,
-      })),
-    ];
-
-    gridNode = el('div', { class: 'sound-grid' }, all.map(soundCard));
+    gridNode = el('div', { class: 'sound-grid' }, Ambience.catalogue().map(soundCard));
 
     const node = el('div', { class: 'cove' }, [
       Views.header({
         eyebrow: 'Cozy Cove',
         title: 'Somewhere quiet',
-        subtitle: 'Layer as many as you like. Everything here is generated as it plays, so nothing ever loops.',
+        subtitle: 'Layer as many as you like. Every sound is levelled against the others and loops with a crossfade, so nothing jumps.',
         actions: [
           el('button', { class: 'primary-btn', text: '⤢  Immersive mode', onclick: enterImmersive }),
           el('button', { class: 'ghost-btn', text: 'Silence everything', onclick: () => { Ambience.stopAll(); render(); } }),
@@ -225,7 +338,7 @@ const Cove = (() => {
         el('div', { class: 'vibe-grid' }, VIBES.map((v) => el('button', {
           class: 'vibe', onclick: () => useVibe(v),
           style: {
-            backgroundImage: `linear-gradient(135deg, ${v.values.bgColor1}, ${v.values.bgColor2} 55%, ${v.values.bgColor3})`,
+            backgroundImage: `linear-gradient(135deg, ${v.values.color1}, ${v.values.color2} 55%, ${v.values.color3})`,
           },
         }, [el('span', { text: v.name })]))),
       ]),
@@ -239,6 +352,18 @@ const Cove = (() => {
           ]),
         ]),
         gridNode,
+      ]),
+
+      el('section', { class: 'section' }, [
+        el('div', { class: 'section-head' }, [
+          el('h2', { class: 'section-title', text: 'Style this space' }),
+          el('button', {
+            class: 'link-btn', text: 'Reset',
+            onclick: () => { CoveTheme.reset(); render(); },
+          }),
+        ]),
+        el('p', { class: 'cz-blurb', text: 'The Cove keeps its own look. Nothing here touches the theme you set everywhere else.' }),
+        el('div', { class: 'cz-panel' }, [el('div', { class: 'cz-body' }, [styleControls()])]),
       ]),
     ]);
 
