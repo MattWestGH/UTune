@@ -332,6 +332,11 @@ async function boot() {
 
   await intro;
 
+  const libHealth = await window.utune.library.health();
+  if (libHealth && libHealth.message) {
+    toast(libHealth.message, libHealth.ok ? 'info' : 'bad', libHealth.ok ? 7000 : 15000);
+  }
+
   const recovered = await window.utune.app.recoveredFrom();
   if (recovered) toast('Your library was carried over from the previous location', 'good', 6000);
 }

@@ -136,6 +136,8 @@ on('app:openExternal', (url) => { if (/^https?:/.test(url)) shell.openExternal(u
 on('app:version', () => app.getVersion());
 
 on('lib:get', () => library.load());
+on('lib:health', () => library.health());
+on('lib:rescan', () => library.rescanMedia(reportImport));
 
 const reportImport = (p) => win && win.webContents.send('lib:importProgress', p);
 

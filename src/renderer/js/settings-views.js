@@ -295,6 +295,35 @@ const SettingsViews = (() => {
       eqSection(),
 
       el('section', { class: 'section' }, [
+        el('h2', { class: 'section-title', text: 'Your library' }),
+        el('div', { class: 'panel settings-panel' }, [
+          el('p', { class: 'field-note', text: 'Your music files and the list of them are separate. '
+            + 'If tracks ever go missing from the list, the audio is usually still on disk — this puts it back.' }),
+          el('div', { class: 'row-actions' }, [
+            el('button', {
+              class: 'ghost-btn', text: 'Rescan my music folder',
+              onclick: async (e) => {
+                const btn = e.currentTarget;
+                btn.disabled = true;
+                btn.textContent = 'Scanning…';
+                const res = await window.utune.library.rescan();
+                await Store.refresh();
+                btn.disabled = false;
+                btn.textContent = 'Rescan my music folder';
+                if (res.blocked) toast('Cannot rescan while the library file is unreadable', 'bad', 8000);
+                else if (res.added.length) toast(`Recovered ${res.added.length} track${res.added.length === 1 ? '' : 's'}`, 'good', 6000);
+                else toast('Nothing missing — everything on disk is already listed', 'info');
+              },
+            }),
+            el('button', {
+              class: 'ghost-btn', text: 'Open my music folder',
+              onclick: () => window.utune.app.openDataDir(),
+            }),
+          ]),
+        ]),
+      ]),
+
+      el('section', { class: 'section' }, [
         el('h2', { class: 'section-title', text: 'Shortcuts' }),
         el('div', { class: 'panel settings-panel' }, [
           el('p', { class: 'field-note', text: 'UTune adds itself to the Start Menu automatically. Right-click it there (or its taskbar button while running) and choose "Pin to taskbar".' }),

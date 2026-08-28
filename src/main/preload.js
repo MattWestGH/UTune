@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('utune', {
 
   library: {
     get: () => invoke('lib:get'),
+    health: () => invoke('lib:health'),
+    rescan: () => invoke('lib:rescan'),
     pickAndImport: () => invoke('lib:pickAndImport'),
     pickFolderAndImport: () => invoke('lib:pickFolderAndImport'),
     importPaths: (paths) => invoke('lib:importPaths', paths),
