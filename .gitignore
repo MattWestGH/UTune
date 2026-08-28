@@ -18,3 +18,8 @@ build/icon.png
 Thumbs.db
 desktop.ini
 *.log
+
+# Ambience source recordings. The shipped seamless loops in resources/ambience
+# are built from these by build/make-all-loops.js; the sources are 41 MB and do
+# not need to be in the repo.
+resources/ambience-src/

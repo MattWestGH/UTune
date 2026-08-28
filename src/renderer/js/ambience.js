@@ -1,10 +1,14 @@
 /**
  * Cozy Cove's sound engine.
  *
- * Every layer is a real recording, looped with a crossfade: two overlapping
- * copies of the buffer, one fading in as the other fades out, so the seam is
- * inaudible. Recordings are almost never trimmed to a clean loop point, and a
- * plain `loop = true` clicks.
+ * The built-in layers are pre-built seamless loops (see build/make-loop.js): the
+ * tail of each file is crossfaded into its own head, so the end already flows
+ * into the beginning and it can simply repeat.
+ *
+ * They are still played through the crossfading loop below rather than
+ * `loop = true`, because imported files go through the same path and those are
+ * arbitrary recordings with no clean loop point. On an already-seamless file the
+ * crossfade is inaudible either way.
  *
  * `norm` is a per-file gain measured from the source material. The recordings
  * arrived with about 30 dB between the quietest and the loudest - crickets at
@@ -30,21 +34,60 @@ const Ambience = (() => {
    * Re-measure and update these if the files are ever replaced.
    */
   const SOUNDS = [
-    { id: 'rain',     name: 'Rain',            icon: '☂', file: 'rain.mp3',     norm: 1.00 },
-    { id: 'downpour', name: 'Heavy downpour',  icon: '☔', file: 'downpour.mp3', norm: 0.27 },
-    { id: 'thunder',  name: 'Distant thunder', icon: '☁', file: 'thunder.mp3',  norm: 0.31 },
-    { id: 'waves',    name: 'Ocean waves',     icon: '≈', file: 'waves.mp3',    norm: 2.15 },
-    { id: 'stream',   name: 'Stream',          icon: '⌁', file: 'stream.mp3',   norm: 3.60 },
-    { id: 'wind',     name: 'Wind',            icon: '❋', file: 'wind.mp3',     norm: 0.29 },
-    { id: 'leaves',   name: 'Rustling trees',  icon: '❦', file: 'leaves.mp3',   norm: 1.38 },
-    { id: 'crickets', name: 'Crickets',        icon: '♪', file: 'crickets.mp3', norm: 9.26 },
-    { id: 'birds',    name: 'Birdsong',        icon: '❥', file: 'birds.mp3',    norm: 0.41 },
-    { id: 'fire',     name: 'Crackling fire',  icon: '✦', file: 'fire.mp3',     norm: 0.99 },
+    { id: 'rain',     name: 'Rain',            icon: '☂', file: 'rain.webm',     norm: 1.01 },
+    { id: 'downpour', name: 'Heavy downpour',  icon: '☔', file: 'downpour.webm', norm: 0.26 },
+    { id: 'thunder',  name: 'Distant thunder', icon: '☁', file: 'thunder.webm',  norm: 0.34 },
+    { id: 'waves',    name: 'Ocean waves',     icon: '≈', file: 'waves.webm',    norm: 2.04 },
+    { id: 'stream',   name: 'Stream',          icon: '⌁', file: 'stream.webm',   norm: 3.54 },
+    { id: 'wind',     name: 'Wind',            icon: '❋', file: 'wind.webm',     norm: 0.29 },
+    { id: 'leaves',   name: 'Rustling trees',  icon: '❦', file: 'leaves.webm',   norm: 1.35 },
+    { id: 'crickets', name: 'Crickets',        icon: '♪', file: 'crickets.webm', norm: 8.60 },
+    { id: 'birds',    name: 'Birdsong',        icon: '❥', file: 'birds.webm',    norm: 0.41 },
+    { id: 'fire',     name: 'Crackling fire',  icon: '✦', file: 'fire.webm',     norm: 0.90 },
   ];
 
   const byId = (id) => SOUNDS.find((s) => s.id === id);
 
   /* ------------------------------- loading ------------------------------- */
+
+  /**
+   * Silence at either end turns into a gap on every repeat. Encoders add a few
+   * milliseconds of their own padding, and recordings often start or end quiet,
+   * so both ends are trimmed back to where there is actually signal.
+   *
+   * The threshold is relative to the file's own peak: an absolute one would trim
+   * nothing from a loud file and half of a quiet one.
+   */
+  function trimSilence(ctx, buf) {
+    const channels = buf.numberOfChannels;
+    const data = [];
+    for (let c = 0; c < channels; c++) data.push(buf.getChannelData(c));
+
+    let peak = 0;
+    for (const d of data) for (let i = 0; i < d.length; i++) {
+      const v = Math.abs(d[i]);
+      if (v > peak) peak = v;
+    }
+    if (peak === 0) return buf;
+
+    const floor = peak * 0.002;   // about -54 dB below the file's own peak
+    const loud = (i) => data.some((d) => Math.abs(d[i]) > floor);
+
+    let head = 0;
+    while (head < buf.length && !loud(head)) head++;
+    let tail = buf.length - 1;
+    while (tail > head && !loud(tail)) tail--;
+
+    const length = tail - head + 1;
+    // Nothing worth doing, or the file is basically silent.
+    if (length < buf.sampleRate * 0.5 || length > buf.length - buf.sampleRate * 0.01) return buf;
+
+    const out = ctx.createBuffer(channels, length, buf.sampleRate);
+    for (let c = 0; c < channels; c++) {
+      out.getChannelData(c).set(data[c].subarray(head, head + length));
+    }
+    return out;
+  }
 
   async function loadBuffer(url) {
     if (buffers.has(url)) return buffers.get(url);
@@ -52,7 +95,8 @@ const Ambience = (() => {
     if (!ctx) return null;
     const res = await fetch(url);
     if (!res.ok) throw new Error('could not fetch ' + url);
-    const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+    const decoded = await ctx.decodeAudioData(await res.arrayBuffer());
+    const buf = trimSilence(ctx, decoded);
     buffers.set(url, buf);
     return buf;
   }
